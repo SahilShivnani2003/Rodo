@@ -10,7 +10,7 @@ import {
     Platform,
     StatusBar,
 } from 'react-native';
-import { Colors, Radius, Shadow } from '../../theme/index';
+import { Colors, Radius, Shadow } from '../theme/index';
 
 const MENU_CATEGORIES = [
     { id: 'thali', label: '🍱 Thali' },

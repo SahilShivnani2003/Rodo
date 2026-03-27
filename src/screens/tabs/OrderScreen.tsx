@@ -1,5 +1,3 @@
-// OrderTrackingScreen.tsx — Rodo (Light Theme)
-
 import React from 'react';
 import {
     View,
@@ -11,6 +9,8 @@ import {
     StatusBar,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme/index';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MainTabParamList } from '../../navigation/TabNavigator';
 
 const ORDER = {
     id: 'RD-2891',
@@ -37,13 +37,15 @@ const STATUS_STEPS = [
     { id: 'ready', label: 'Ready to Serve', icon: '🍽️', desc: 'Food is ready, come on in!' },
 ];
 
-const getState = (stepId: string, current: string) => {
-    const order = ['sent', 'preparing', 'ready'];
-    const d = order.indexOf(stepId) - order.indexOf(current);
-    return d < 0 ? 'done' : d === 0 ? 'active' : 'pending';
-};
+type orderProps = NativeStackScreenProps<MainTabParamList, 'orders'>;
 
-export default function OrderTrackingScreen({ navigation }: any) {
+export default function OrderTrackingScreen({ navigation }: orderProps) {
+    const getState = (stepId: string, current: string) => {
+        const order = ['sent', 'preparing', 'ready'];
+        const d = order.indexOf(stepId) - order.indexOf(current);
+        return d < 0 ? 'done' : d === 0 ? 'active' : 'pending';
+    };
+
     return (
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />

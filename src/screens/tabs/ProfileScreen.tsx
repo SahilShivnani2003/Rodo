@@ -1,7 +1,12 @@
-import { View, StatusBar, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
-import { Colors, Shadow, Radius } from "../../theme";
+import { View, StatusBar, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Colors, Shadow, Radius } from '../../theme';
+import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MainTabParamList } from '../../navigation/TabNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
-export function ProfileScreen({ navigation }: any) {
+type profileProps = NativeStackScreenProps<MainTabParamList, 'profile'>;
+
+export function ProfileScreen({ navigation }: profileProps) {
     const menuItems = [
         { icon: '📦', label: 'Order History', onPress: () => {} },
         { icon: '🎟️', label: 'My Coupons', onPress: () => {} },
@@ -11,7 +16,10 @@ export function ProfileScreen({ navigation }: any) {
         {
             icon: '🚪',
             label: 'Log Out',
-            onPress: () => navigation.replace('Welcome'),
+            onPress: () =>
+                navigation
+                    .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                    .replace('welcome'),
             danger: true,
         },
     ];

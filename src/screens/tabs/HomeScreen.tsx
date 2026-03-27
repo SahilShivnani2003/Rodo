@@ -1,5 +1,3 @@
-// HomeScreen.tsx — Rodo (Light Theme)
-
 import React, { useState } from 'react';
 import {
     View,
@@ -13,6 +11,9 @@ import {
     Platform,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme/index';
+import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MainTabParamList } from '../../navigation/TabNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 const { width } = Dimensions.get('window');
 
@@ -66,24 +67,9 @@ const POPULAR_RESTAURANTS = [
     },
 ];
 
-const HeaderSection = () => (
-    <View style={styles.header}>
-        <View>
-            <View style={styles.locationRow}>
-                <View style={styles.locationDot} />
-                <Text style={styles.locationLabel}>Sehore Highway</Text>
-            </View>
-            <Text style={styles.greeting}>Hello, Rahul! 👋</Text>
-            <Text style={styles.subGreeting}>Where are you headed today?</Text>
-        </View>
-        <TouchableOpacity style={styles.notifBtn}>
-            <Text style={styles.notifIcon}>🔔</Text>
-            <View style={styles.notifBadge} />
-        </TouchableOpacity>
-    </View>
-);
+type homeProps = NativeStackScreenProps<MainTabParamList, 'home'>;
 
-const TripPlanner = ({ onFind }: { onFind: () => void }) => {
+export default function HomeScreen({ navigation }: homeProps) {
     const [from, setFrom] = useState('Bhopal');
     const [to, setTo] = useState('Indore');
     const handleSwap = () => {
@@ -92,152 +78,67 @@ const TripPlanner = ({ onFind }: { onFind: () => void }) => {
         setTo(t);
     };
 
-    return (
-        <View style={styles.plannerCard}>
-            <View style={styles.plannerGlow} />
-            <View style={styles.plannerHeader}>
-                <View style={styles.plannerIconWrap}>
-                    <Text style={styles.plannerIcon}>🛣️</Text>
+    const RestaurantCard = ({ r }: { r: (typeof POPULAR_RESTAURANTS)[0] }) => (
+        <TouchableOpacity
+            style={[styles.restCard, !r.isAhead && styles.restCardPassed]}
+            activeOpacity={0.8}
+        >
+            <View style={styles.restImageWrap}>
+                <View style={[styles.restImageBg, !r.isAhead && styles.restImageBgPassed]}>
+                    <Text style={styles.restImageEmoji}>🍽️</Text>
                 </View>
-                <Text style={styles.plannerTitle}>Plan Your Trip</Text>
-            </View>
-            <View style={styles.routeInputs}>
-                <View style={styles.inputRow}>
-                    <View style={[styles.routeDot, { backgroundColor: Colors.vegGreen }]} />
-                    <TextInput
-                        style={styles.routeInput}
-                        value={from}
-                        onChangeText={setFrom}
-                        placeholder="Starting point"
-                        placeholderTextColor={Colors.textMuted}
-                    />
-                </View>
-                <View style={styles.dividerRow}>
-                    <View style={styles.routeLine} />
-                    <TouchableOpacity style={styles.swapBtn} onPress={handleSwap}>
-                        <Text style={styles.swapIcon}>⇅</Text>
-                    </TouchableOpacity>
-                    <View style={styles.routeLine} />
-                </View>
-                <View style={styles.inputRow}>
-                    <View style={[styles.routeDot, { backgroundColor: Colors.redPin }]} />
-                    <TextInput
-                        style={styles.routeInput}
-                        value={to}
-                        onChangeText={setTo}
-                        placeholder="Destination"
-                        placeholderTextColor={Colors.textMuted}
-                    />
-                </View>
-            </View>
-            <TouchableOpacity style={styles.findBtn} onPress={onFind} activeOpacity={0.85}>
-                <Text style={styles.findBtnText}>Find Restaurants on Route</Text>
-                <Text style={styles.findBtnArrow}>→</Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
-
-const OffersStrip = () => (
-    <View>
-        <Text style={styles.sectionTitle}>Special Offers</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.offersScroll}>
-            {OFFERS.map(o => (
-                <TouchableOpacity
-                    key={o.id}
-                    style={[styles.offerCard, { borderColor: o.color + '30' }]}
-                >
-                    <View style={[styles.offerIconBg, { backgroundColor: o.color + '12' }]}>
-                        <Text style={styles.offerEmoji}>{o.emoji}</Text>
-                    </View>
-                    <Text style={[styles.offerLabel, { color: o.color }]}>{o.label}</Text>
-                    <Text style={styles.offerSub}>{o.sub}</Text>
-                </TouchableOpacity>
-            ))}
-        </ScrollView>
-    </View>
-);
-
-const CategoryRow = () => (
-    <View>
-        <Text style={styles.sectionTitle}>Quick Categories</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-            {CATEGORIES.map((c, i) => (
-                <TouchableOpacity
-                    key={c.id}
-                    style={[styles.catItem, i === 0 && styles.catItemActive]}
-                >
-                    <Text style={styles.catEmoji}>{c.emoji}</Text>
-                    <Text style={[styles.catLabel, i === 0 && styles.catLabelActive]}>
-                        {c.label}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </ScrollView>
-    </View>
-);
-
-const RestaurantCard = ({ r }: { r: (typeof POPULAR_RESTAURANTS)[0] }) => (
-    <TouchableOpacity
-        style={[styles.restCard, !r.isAhead && styles.restCardPassed]}
-        activeOpacity={0.8}
-    >
-        <View style={styles.restImageWrap}>
-            <View style={[styles.restImageBg, !r.isAhead && styles.restImageBgPassed]}>
-                <Text style={styles.restImageEmoji}>🍽️</Text>
-            </View>
-            <View
-                style={[
-                    styles.vegBadge,
-                    { borderColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
-                ]}
-            >
                 <View
                     style={[
-                        styles.vegDot,
-                        { backgroundColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
+                        styles.vegBadge,
+                        { borderColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
                     ]}
-                />
-            </View>
-            {!r.isAhead && (
-                <View style={styles.passedOverlay}>
-                    <Text style={styles.passedText}>Passed</Text>
+                >
+                    <View
+                        style={[
+                            styles.vegDot,
+                            { backgroundColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
+                        ]}
+                    />
                 </View>
-            )}
-        </View>
-        <View style={styles.restInfo}>
-            <View style={styles.restNameRow}>
-                <Text style={[styles.restName, !r.isAhead && styles.restNamePassed]}>{r.name}</Text>
-                <View style={styles.ratingRow}>
-                    <Text style={styles.starIcon}>★</Text>
-                    <Text style={styles.ratingText}>{r.rating}</Text>
+                {!r.isAhead && (
+                    <View style={styles.passedOverlay}>
+                        <Text style={styles.passedText}>Passed</Text>
+                    </View>
+                )}
+            </View>
+            <View style={styles.restInfo}>
+                <View style={styles.restNameRow}>
+                    <Text style={[styles.restName, !r.isAhead && styles.restNamePassed]}>
+                        {r.name}
+                    </Text>
+                    <View style={styles.ratingRow}>
+                        <Text style={styles.starIcon}>★</Text>
+                        <Text style={styles.ratingText}>{r.rating}</Text>
+                    </View>
                 </View>
+                <View style={styles.restMetaRow}>
+                    {[`📍 ${r.distance}`, `⏱ ${r.eta}`, `👥 ${r.priceForTwo}`].map(m => (
+                        <View key={m} style={styles.restMetaChip}>
+                            <Text style={styles.restMetaText}>{m}</Text>
+                        </View>
+                    ))}
+                </View>
+                <View style={styles.tagRow}>
+                    {r.tags.map(t => (
+                        <View key={t} style={styles.tag}>
+                            <Text style={styles.tagText}>{t}</Text>
+                        </View>
+                    ))}
+                </View>
+                {r.isAhead && (
+                    <TouchableOpacity style={styles.menuBtn} onPress={()=> navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().navigate('menu')}>
+                        <Text style={styles.menuBtnText}>View Menu</Text>
+                    </TouchableOpacity>
+                )}
             </View>
-            <View style={styles.restMetaRow}>
-                {[`📍 ${r.distance}`, `⏱ ${r.eta}`, `👥 ${r.priceForTwo}`].map(m => (
-                    <View key={m} style={styles.restMetaChip}>
-                        <Text style={styles.restMetaText}>{m}</Text>
-                    </View>
-                ))}
-            </View>
-            <View style={styles.tagRow}>
-                {r.tags.map(t => (
-                    <View key={t} style={styles.tag}>
-                        <Text style={styles.tagText}>{t}</Text>
-                    </View>
-                ))}
-            </View>
-            {r.isAhead && (
-                <TouchableOpacity style={styles.menuBtn}>
-                    <Text style={styles.menuBtnText}>View Menu</Text>
-                </TouchableOpacity>
-            )}
-        </View>
-    </TouchableOpacity>
-);
+        </TouchableOpacity>
+    );
 
-
-export default function HomeScreen({ navigation }: any) {
     return (
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
@@ -246,10 +147,122 @@ export default function HomeScreen({ navigation }: any) {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <HeaderSection />
-                <TripPlanner onFind={() => {}} />
-                <OffersStrip />
-                <CategoryRow />
+                {/**Header Section */}
+                <View style={styles.header}>
+                    <View>
+                        <View style={styles.locationRow}>
+                            <View style={styles.locationDot} />
+                            <Text style={styles.locationLabel}>Sehore Highway</Text>
+                        </View>
+                        <Text style={styles.greeting}>Hello, Rahul! 👋</Text>
+                        <Text style={styles.subGreeting}>Where are you headed today?</Text>
+                    </View>
+                    <TouchableOpacity style={styles.notifBtn}>
+                        <Text style={styles.notifIcon}>🔔</Text>
+                        <View style={styles.notifBadge} />
+                    </TouchableOpacity>
+                </View>
+                {/**Trip Planner Section */}
+                <View style={styles.plannerCard}>
+                    <View style={styles.plannerGlow} />
+                    <View style={styles.plannerHeader}>
+                        <View style={styles.plannerIconWrap}>
+                            <Text style={styles.plannerIcon}>🛣️</Text>
+                        </View>
+                        <Text style={styles.plannerTitle}>Plan Your Trip</Text>
+                    </View>
+                    <View style={styles.routeInputs}>
+                        <View style={styles.inputRow}>
+                            <View style={[styles.routeDot, { backgroundColor: Colors.vegGreen }]} />
+                            <TextInput
+                                style={styles.routeInput}
+                                value={from}
+                                onChangeText={setFrom}
+                                placeholder="Starting point"
+                                placeholderTextColor={Colors.textMuted}
+                            />
+                        </View>
+                        <View style={styles.dividerRow}>
+                            <View style={styles.routeLine} />
+                            <TouchableOpacity style={styles.swapBtn} onPress={handleSwap}>
+                                <Text style={styles.swapIcon}>⇅</Text>
+                            </TouchableOpacity>
+                            <View style={styles.routeLine} />
+                        </View>
+                        <View style={styles.inputRow}>
+                            <View style={[styles.routeDot, { backgroundColor: Colors.redPin }]} />
+                            <TextInput
+                                style={styles.routeInput}
+                                value={to}
+                                onChangeText={setTo}
+                                placeholder="Destination"
+                                placeholderTextColor={Colors.textMuted}
+                            />
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.findBtn}
+                        onPress={() => navigation.navigate('restaurants')}
+                        activeOpacity={0.85}
+                    >
+                        <Text style={styles.findBtnText}>Find Restaurants on Route</Text>
+                        <Text style={styles.findBtnArrow}>→</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/**Offer Strip Section*/}
+                <View>
+                    <Text style={styles.sectionTitle}>Special Offers</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.offersScroll}
+                    >
+                        {OFFERS.map(o => (
+                            <TouchableOpacity
+                                key={o.id}
+                                style={[styles.offerCard, { borderColor: o.color + '30' }]}
+                            >
+                                <View
+                                    style={[
+                                        styles.offerIconBg,
+                                        { backgroundColor: o.color + '12' },
+                                    ]}
+                                >
+                                    <Text style={styles.offerEmoji}>{o.emoji}</Text>
+                                </View>
+                                <Text style={[styles.offerLabel, { color: o.color }]}>
+                                    {o.label}
+                                </Text>
+                                <Text style={styles.offerSub}>{o.sub}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {/**Category Row Section */}
+                <View>
+                    <Text style={styles.sectionTitle}>Quick Categories</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.catScroll}
+                    >
+                        {CATEGORIES.map((c, i) => (
+                            <TouchableOpacity
+                                key={c.id}
+                                style={[styles.catItem, i === 0 && styles.catItemActive]}
+                            >
+                                <Text style={styles.catEmoji}>{c.emoji}</Text>
+                                <Text style={[styles.catLabel, i === 0 && styles.catLabelActive]}>
+                                    {c.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {/**Restaurants Section */}
                 <View style={styles.sectionRow}>
                     <Text style={styles.sectionTitle}>Restaurants on Route</Text>
                     <TouchableOpacity>

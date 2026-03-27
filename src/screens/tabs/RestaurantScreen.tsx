@@ -1,5 +1,3 @@
-// RestaurantListScreen.tsx — Rodo (Light Theme)
-
 import React, { useState } from 'react';
 import {
     View,
@@ -11,6 +9,9 @@ import {
     StatusBar,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme/index';
+import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MainTabParamList } from '../../navigation/TabNavigator';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
 const ROUTE_RESTAURANTS = [
     {
@@ -86,107 +87,123 @@ const RouteProgressBar = () => (
     </View>
 );
 
-const RestaurantRow = ({ r }: { r: (typeof ROUTE_RESTAURANTS)[0] }) => {
-    const isPassed = r.status === 'passed';
-    const isNearest = r.status === 'nearest';
-    return (
-        <TouchableOpacity
-            style={[
-                styles.rowCard,
-                isPassed && styles.rowCardPassed,
-                isNearest && styles.rowCardNearest,
-            ]}
-            activeOpacity={isPassed ? 1 : 0.8}
-            disabled={isPassed}
-        >
-            {isNearest && (
-                <View style={styles.nearestBadge}>
-                    <Text style={styles.nearestText}>📍 Nearest</Text>
-                </View>
-            )}
-            <View style={styles.rowInner}>
-                <View style={styles.rowImageWrap}>
-                    <View style={[styles.rowImage, isPassed && styles.rowImagePassed]}>
-                        <Text style={styles.rowImageEmoji}>🍽️</Text>
+type restaurantProps = NativeStackScreenProps<MainTabParamList, 'restaurants'>;
+
+export default function RestaurantListScreen({ navigation }: restaurantProps) {
+    const [activeFilter, setActiveFilter] = useState('All');
+
+    const RestaurantRow = ({ r }: { r: (typeof ROUTE_RESTAURANTS)[0] }) => {
+        const isPassed = r.status === 'passed';
+        const isNearest = r.status === 'nearest';
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.rowCard,
+                    isPassed && styles.rowCardPassed,
+                    isNearest && styles.rowCardNearest,
+                ]}
+                activeOpacity={isPassed ? 1 : 0.8}
+                disabled={isPassed}
+                onPress={() =>
+                    navigation
+                        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                        .navigate('menu')
+                }
+            >
+                {isNearest && (
+                    <View style={styles.nearestBadge}>
+                        <Text style={styles.nearestText}>📍 Nearest</Text>
                     </View>
-                    <View
-                        style={[
-                            styles.vegBox,
-                            { borderColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
-                        ]}
-                    >
+                )}
+                <View style={styles.rowInner}>
+                    <View style={styles.rowImageWrap}>
+                        <View style={[styles.rowImage, isPassed && styles.rowImagePassed]}>
+                            <Text style={styles.rowImageEmoji}>🍽️</Text>
+                        </View>
                         <View
                             style={[
-                                styles.vegCircle,
-                                { backgroundColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
+                                styles.vegBox,
+                                { borderColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
                             ]}
-                        />
-                    </View>
-                </View>
-                <View style={styles.rowInfoWrap}>
-                    <View style={styles.rowNameRow}>
-                        <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>
-                            {r.name}
-                        </Text>
-                        <View style={styles.rowRating}>
-                            <Text style={styles.rowStar}>★</Text>
-                            <Text style={styles.rowRatingNum}>{r.rating}</Text>
-                        </View>
-                    </View>
-                    <Text style={[styles.rowCuisine, isPassed && styles.rowCuisinePassed]}>
-                        {r.cuisine}
-                    </Text>
-                    <View style={styles.rowMeta}>
-                        {[`📍 ${r.distanceLabel}`, `⏱ ${r.eta}`, `👥 ${r.priceForTwo}`].map(m => (
-                            <View key={m} style={styles.metaPill}>
-                                <Text style={styles.metaPillText}>{m}</Text>
-                            </View>
-                        ))}
-                    </View>
-                    {!isPassed && (
-                        <View style={styles.rowActionRow}>
+                        >
                             <View
                                 style={[
-                                    styles.openBadge,
-                                    { backgroundColor: r.isOpen ? '#dcfce7' : '#fee2e2' },
+                                    styles.vegCircle,
+                                    { backgroundColor: r.isVeg ? Colors.vegGreen : Colors.redPin },
                                 ]}
-                            >
+                            />
+                        </View>
+                    </View>
+                    <View style={styles.rowInfoWrap}>
+                        <View style={styles.rowNameRow}>
+                            <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>
+                                {r.name}
+                            </Text>
+                            <View style={styles.rowRating}>
+                                <Text style={styles.rowStar}>★</Text>
+                                <Text style={styles.rowRatingNum}>{r.rating}</Text>
+                            </View>
+                        </View>
+                        <Text style={[styles.rowCuisine, isPassed && styles.rowCuisinePassed]}>
+                            {r.cuisine}
+                        </Text>
+                        <View style={styles.rowMeta}>
+                            {[`📍 ${r.distanceLabel}`, `⏱ ${r.eta}`, `👥 ${r.priceForTwo}`].map(
+                                m => (
+                                    <View key={m} style={styles.metaPill}>
+                                        <Text style={styles.metaPillText}>{m}</Text>
+                                    </View>
+                                ),
+                            )}
+                        </View>
+                        {!isPassed && (
+                            <View style={styles.rowActionRow}>
                                 <View
                                     style={[
-                                        styles.openDot,
-                                        {
-                                            backgroundColor: r.isOpen
-                                                ? Colors.successGreen
-                                                : Colors.redPin,
-                                        },
-                                    ]}
-                                />
-                                <Text
-                                    style={[
-                                        styles.openText,
-                                        { color: r.isOpen ? Colors.successGreen : Colors.redPin },
+                                        styles.openBadge,
+                                        { backgroundColor: r.isOpen ? '#dcfce7' : '#fee2e2' },
                                     ]}
                                 >
-                                    {r.isOpen ? 'Open' : 'Closed'}
-                                </Text>
+                                    <View
+                                        style={[
+                                            styles.openDot,
+                                            {
+                                                backgroundColor: r.isOpen
+                                                    ? Colors.successGreen
+                                                    : Colors.redPin,
+                                            },
+                                        ]}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.openText,
+                                            {
+                                                color: r.isOpen
+                                                    ? Colors.successGreen
+                                                    : Colors.redPin,
+                                            },
+                                        ]}
+                                    >
+                                        {r.isOpen ? 'Open' : 'Closed'}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity style={styles.preOrderBtn}>
+                                    <Text style={styles.preOrderText}>Pre-order</Text>
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity style={styles.preOrderBtn}>
-                                <Text style={styles.preOrderText}>Pre-order</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                    {isPassed && (
-                        <Text style={styles.passedLabel}>Already passed this restaurant</Text>
-                    )}
+                        )}
+                        {isPassed && (
+                            <Text style={styles.passedLabel}>Already passed this restaurant</Text>
+                        )}
+                    </View>
                 </View>
-            </View>
-            <View style={[styles.routeConnectorDot, isPassed && styles.routeConnectorDotPassed]} />
-        </TouchableOpacity>
-    );
-};
+                <View
+                    style={[styles.routeConnectorDot, isPassed && styles.routeConnectorDotPassed]}
+                />
+            </TouchableOpacity>
+        );
+    };
 
-export default function RestaurantListScreen({ navigation }: any) {
-    const [activeFilter, setActiveFilter] = useState('All');
     return (
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
@@ -396,7 +413,13 @@ const styles = StyleSheet.create({
 
     // ── List ──────────────────────────────────────────────────────────────────
     list: { flex: 1 },
-    listContent: { paddingHorizontal: 20, paddingTop: 16, paddingRight: 10, position: 'relative', margin:10 },
+    listContent: {
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingRight: 10,
+        position: 'relative',
+        margin: 10,
+    },
     routeLineVertical: {
         position: 'absolute',
         left: 52,

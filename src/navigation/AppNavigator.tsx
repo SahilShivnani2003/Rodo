@@ -6,6 +6,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import LoginSuccessScreen from '../screens/auth/LoginSuccesScreen';
 import OTPScreen from '../screens/auth/OtpScreen';
 import TabNavigator from './TabNavigator';
+import MenuScreen from '../screens/MenuScreen';
 
 export type RootStackParamList = {
     splash: undefined;
@@ -16,6 +17,7 @@ export type RootStackParamList = {
     };
     loginSuccess: undefined;
     main: undefined;
+    menu: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -30,6 +32,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="loginSuccess" component={LoginSuccessScreen} />
                 <Stack.Screen name="otpLogin" component={OTPScreen} />
                 <Stack.Screen name="main" component={TabNavigator} />
+                <Stack.Screen name="menu" component={MenuScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );
