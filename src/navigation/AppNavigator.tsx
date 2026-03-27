@@ -1,12 +1,13 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/splashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import LoginSuccessScreen from '../screens/auth/LoginSuccesScreen';
 import OTPScreen from '../screens/auth/OtpScreen';
-import TabNavigator from './TabNavigator';
+import TabNavigator, { MainTabParamList } from './TabNavigator';
 import MenuScreen from '../screens/MenuScreen';
+import CartScreen from '../screens/CartScreen';
 
 export type RootStackParamList = {
     splash: undefined;
@@ -16,8 +17,9 @@ export type RootStackParamList = {
         phone: string;
     };
     loginSuccess: undefined;
-    main: undefined;
+    main: NavigatorScreenParams<MainTabParamList>;
     menu: undefined;
+    cart: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -33,6 +35,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="otpLogin" component={OTPScreen} />
                 <Stack.Screen name="main" component={TabNavigator} />
                 <Stack.Screen name="menu" component={MenuScreen} />
+                <Stack.Screen name="cart" component={CartScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

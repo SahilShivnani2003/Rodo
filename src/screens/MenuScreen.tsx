@@ -11,6 +11,8 @@ import {
     StatusBar,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../theme/index';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 const MENU_CATEGORIES = [
     { id: 'thali', label: '🍱 Thali' },
@@ -109,7 +111,9 @@ const QtyControl = ({
         </View>
     );
 
-export default function MenuScreen({ navigation }: any) {
+type menuProps = NativeStackScreenProps<RootStackParamList, 'menu'>
+
+export default function MenuScreen({ navigation }: menuProps) {
     const [activeCategory, setActiveCategory] = useState('thali');
     const [selectedETA, setSelectedETA] = useState('30 min');
     const [dineMode, setDineMode] = useState('dine');

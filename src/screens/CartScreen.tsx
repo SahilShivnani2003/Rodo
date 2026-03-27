@@ -12,6 +12,8 @@ import {
     Alert,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../theme/index';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,8 +144,9 @@ const SectionHeader = ({ title, sub }: { title: string; sub?: string }) => (
 );
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
+type cartProps = NativeStackScreenProps<RootStackParamList, 'cart'>;
 
-export default function CartScreen({ navigation }: any) {
+export default function CartScreen({ navigation }: cartProps) {
     const [items, setItems] = useState<CartItem[]>(INITIAL_ITEMS);
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(
@@ -435,7 +438,9 @@ export default function CartScreen({ navigation }: any) {
                 </View>
                 <TouchableOpacity
                     style={styles.checkoutBtn}
-                    onPress={() => navigation?.navigate?.('OrderTracking')}
+                    onPress={() => navigation.navigate('main',{
+                        screen: "orders"
+                    })}
                     activeOpacity={0.85}
                 >
                     <Text style={styles.checkoutBtnText}>Place Order</Text>

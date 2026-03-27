@@ -1,6 +1,3 @@
-// OTPScreen.tsx — Rodo
-// 6-digit OTP verification with auto-focus and resend timer
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
