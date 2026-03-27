@@ -265,7 +265,7 @@ export default function HomeScreen({ navigation }: homeProps) {
                 {/**Restaurants Section */}
                 <View style={styles.sectionRow}>
                     <Text style={styles.sectionTitle}>Restaurants on Route</Text>
-                    <TouchableOpacity>
+                    <TouchableOpacity onPress={()=> navigation.navigate('restaurants')}>
                         <Text style={styles.seeAll}>See all →</Text>
                     </TouchableOpacity>
                 </View>
@@ -281,7 +281,7 @@ export default function HomeScreen({ navigation }: homeProps) {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     scroll: { flex: 1 },
-    scrollContent: { paddingTop: Platform.OS === 'android' ? 48 : 60, paddingHorizontal: 20 },
+    scrollContent: { paddingTop: Platform.OS === 'android' ? 24 : 60, paddingHorizontal: 20 },
 
     header: {
         flexDirection: 'row',

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? 44 : 56,
+        paddingTop: Platform.OS === 'android' ? 24 : 56,
         paddingBottom: 14,
         backgroundColor: Colors.bgCard,
         borderBottomWidth: 1,

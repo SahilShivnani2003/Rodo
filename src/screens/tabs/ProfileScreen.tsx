@@ -78,7 +78,7 @@ const profileStyles = StyleSheet.create({
     header: {
         backgroundColor: Colors.bgCard,
         alignItems: 'center',
-        paddingTop: Platform.OS === 'android' ? 56 : 70,
+        paddingTop: Platform.OS === 'android' ? 24 : 70,
         paddingBottom: 24,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,

@@ -111,7 +111,7 @@ const QtyControl = ({
         </View>
     );
 
-type menuProps = NativeStackScreenProps<RootStackParamList, 'menu'>
+type menuProps = NativeStackScreenProps<RootStackParamList, 'menu'>;
 
 export default function MenuScreen({ navigation }: menuProps) {
     const [activeCategory, setActiveCategory] = useState('thali');
@@ -302,7 +302,11 @@ export default function MenuScreen({ navigation }: menuProps) {
             </ScrollView>
 
             {count() > 0 && (
-                <TouchableOpacity style={styles.cartBar} activeOpacity={0.9}>
+                <TouchableOpacity
+                    style={styles.cartBar}
+                    activeOpacity={0.9}
+                    onPress={() => navigation.navigate('cart')}
+                >
                     <View style={styles.cartBarLeft}>
                         <View style={styles.cartBadge}>
                             <Text style={styles.cartBadgeText}>{count()}</Text>
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
     scroll: { flex: 1 },
     backBtn: {
         position: 'absolute',
-        top: Platform.OS === 'android' ? 44 : 56,
+        top: Platform.OS === 'android' ? 24 : 56,
         left: 16,
         zIndex: 99,
         width: 40,

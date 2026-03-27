@@ -1,6 +1,3 @@
-// LoginScreen.tsx — Rodo
-// Phone number entry with country code selector
-
 import React, { useState, useRef } from 'react';
 import {
     View,
@@ -69,11 +66,6 @@ export default function LoginScreen({ navigation }: loginProps) {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
-                {/* Back */}
-                {/* <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
-                    <Text style={styles.backIcon}>←</Text>
-                </TouchableOpacity> */}
-
                 {/* Top illustration */}
                 <View style={styles.heroWrap}>
                     <View style={styles.heroBg}>
@@ -182,7 +174,7 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     scrollContent: {
         paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'android' ? 48 : 60,
+        paddingTop: Platform.OS === 'android' ? 24 : 60,
     },
 
     backBtn: {

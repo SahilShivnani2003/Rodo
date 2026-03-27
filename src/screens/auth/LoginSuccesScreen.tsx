@@ -213,7 +213,9 @@ export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
             >
                 <TouchableOpacity
                     style={styles.startBtn}
-                    onPress={() => navigation.navigate('main')}
+                    onPress={() => navigation.navigate('main',{
+                        screen:'home'
+                    })}
                     activeOpacity={0.85}
                 >
                     <Text style={styles.startBtnText}>Start Exploring 🛣️</Text>

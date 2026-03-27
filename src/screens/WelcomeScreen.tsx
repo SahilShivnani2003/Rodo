@@ -172,11 +172,12 @@ const styles = StyleSheet.create({
     },
     skipBtn: {
         position: 'absolute',
-        top: Platform.OS === 'android' ? 44 : 56,
+        top: Platform.OS === 'android' ? 24 : 56,
         right: 24,
         zIndex: 10,
         paddingHorizontal: 14,
         paddingVertical: 7,
+        
         borderRadius: Radius.full,
         backgroundColor: 'rgba(0,0,0,0.06)',
     },

@@ -217,8 +217,6 @@ export default function CartScreen({ navigation }: cartProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
-
             {/* ── Header ── */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
@@ -522,7 +520,7 @@ const emptyStyles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? 44 : 56,
+        paddingTop: Platform.OS === 'android' ? 24 : 56,
         paddingBottom: 14,
         backgroundColor: Colors.bgCard,
         borderBottomWidth: 1,
@@ -574,7 +572,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? 44 : 56,
+        paddingTop: Platform.OS === 'android' ? 24 : 56,
         paddingBottom: 14,
         backgroundColor: Colors.bgCard,
         borderBottomWidth: 1,

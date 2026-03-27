@@ -224,7 +224,7 @@ export default function OTPScreen({ navigation, route }: otpProps) {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     backBtn: {
-        marginTop: Platform.OS === 'android' ? 44 : 56,
+        marginTop: Platform.OS === 'android' ? 24 : 56,
         marginLeft: 24,
         width: 42,
         height: 42,

@@ -206,7 +206,6 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             {/* Top bar */}
             <View style={styles.topBar}>
@@ -217,8 +216,15 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                     <Text style={styles.topBarTitle}>Bhopal → Indore</Text>
                     <Text style={styles.topBarSub}>4 ahead · 1 passed</Text>
                 </View>
-                <TouchableOpacity style={styles.mapBtn}>
-                    <Text>🗺️</Text>
+                <TouchableOpacity
+                    style={styles.mapBtn}
+                    onPress={() =>
+                        navigation
+                            .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                            .navigate('cart')
+                    }
+                >
+                    <Text>🛒</Text>
                 </TouchableOpacity>
             </View>
 
@@ -284,7 +290,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'android' ? 44 : 56,
+        paddingTop: Platform.OS === 'android' ? 24 : 56,
         paddingBottom: 14,
         backgroundColor: Colors.bgCard,
         borderBottomWidth: 1,

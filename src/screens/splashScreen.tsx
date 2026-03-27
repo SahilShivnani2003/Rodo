@@ -160,7 +160,7 @@ export default function SplashScreen({navigation}:splashProps) {
 
             {/* Tagline */}
             <Animated.View style={{ opacity: tagOpacity }}>
-                <Text style={styles.tagline}>Pre-order food on your highway</Text>
+                <Text style={styles.tagline}>Rodo karo, wait mat karo</Text>
             </Animated.View>
 
             {/* Bottom loader */}
