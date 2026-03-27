@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Platform,
     StatusBar,
+    TextInput,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../../theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -70,6 +71,8 @@ const ROUTE_RESTAURANTS = [
 
 const FILTERS = ['All', 'Veg', 'Non-Veg', 'Open Now', 'Top Rated'];
 
+// ─── Route Progress Bar ───────────────────────────────────────────────────────
+
 const RouteProgressBar = () => (
     <View style={styles.routeBar}>
         <View style={styles.routeBarTrack}>
@@ -87,14 +90,118 @@ const RouteProgressBar = () => (
     </View>
 );
 
+// ─── Search Bar Component ─────────────────────────────────────────────────────
+
+interface SearchBarProps {
+    value: string;
+    onChangeText: (t: string) => void;
+    onFocus: () => void;
+    onBlur: () => void;
+    focused: boolean;
+    onClear: () => void;
+}
+
+function SearchBar({ value, onChangeText, onFocus, onBlur, focused, onClear }: SearchBarProps) {
+    return (
+        <View style={[styles.searchWrap, focused && styles.searchWrapFocused]}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+                style={styles.searchInput}
+                value={value}
+                onChangeText={onChangeText}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                placeholder="Search restaurant by name…"
+                placeholderTextColor={Colors.textMuted}
+                returnKeyType="search"
+                autoCorrect={false}
+                autoCapitalize="words"
+            />
+            {value.length > 0 && (
+                <TouchableOpacity style={styles.clearBtn} onPress={onClear} activeOpacity={0.7}>
+                    <View style={styles.clearCircle}>
+                        <Text style={styles.clearX}>✕</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+}
+
+// ─── No Results ───────────────────────────────────────────────────────────────
+
+function NoResults({ query }: { query: string }) {
+    return (
+        <View style={styles.noResults}>
+            <Text style={styles.noResultsEmoji}>🍽️</Text>
+            <Text style={styles.noResultsTitle}>No restaurants found</Text>
+            <Text style={styles.noResultsSub}>
+                No match for <Text style={styles.noResultsQuery}>"{query}"</Text>
+                {'\n'}Try a different name or clear the search
+            </Text>
+        </View>
+    );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 type restaurantProps = NativeStackScreenProps<MainTabParamList, 'restaurants'>;
 
 export default function RestaurantListScreen({ navigation }: restaurantProps) {
     const [activeFilter, setActiveFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchFocused, setFocused] = useState(false);
 
+    const isSearching = searchQuery.trim().length > 0;
+
+    // ── Filter + search logic ─────────────────────────────────────────────────
+    const filtered = useMemo(() => {
+        let list = [...ROUTE_RESTAURANTS];
+
+        const q = searchQuery.trim().toLowerCase();
+        if (q) {
+            list = list.filter(
+                r => r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q),
+            );
+        }
+
+        if (activeFilter === 'Veg') list = list.filter(r => r.isVeg);
+        if (activeFilter === 'Non-Veg') list = list.filter(r => !r.isVeg);
+        if (activeFilter === 'Open Now') list = list.filter(r => r.isOpen);
+        if (activeFilter === 'Top Rated') list = [...list].sort((a, b) => b.rating - a.rating);
+
+        return list;
+    }, [searchQuery, activeFilter]);
+
+    // ── Restaurant Row ────────────────────────────────────────────────────────
     const RestaurantRow = ({ r }: { r: (typeof ROUTE_RESTAURANTS)[0] }) => {
         const isPassed = r.status === 'passed';
         const isNearest = r.status === 'nearest';
+        const q = searchQuery.trim();
+
+        // Highlight matching portion of the name
+        const renderName = () => {
+            if (!q) {
+                return (
+                    <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>{r.name}</Text>
+                );
+            }
+            const lower = r.name.toLowerCase();
+            const idx = lower.indexOf(q.toLowerCase());
+            if (idx === -1) {
+                return (
+                    <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>{r.name}</Text>
+                );
+            }
+            return (
+                <Text style={[styles.rowName, isPassed && styles.rowNamePassed]} numberOfLines={1}>
+                    {r.name.slice(0, idx)}
+                    <Text style={styles.highlight}>{r.name.slice(idx, idx + q.length)}</Text>
+                    {r.name.slice(idx + q.length)}
+                </Text>
+            );
+        };
+
         return (
             <TouchableOpacity
                 style={[
@@ -136,9 +243,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                     </View>
                     <View style={styles.rowInfoWrap}>
                         <View style={styles.rowNameRow}>
-                            <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>
-                                {r.name}
-                            </Text>
+                            {renderName()}
                             <View style={styles.rowRating}>
                                 <Text style={styles.rowStar}>★</Text>
                                 <Text style={styles.rowRatingNum}>{r.rating}</Text>
@@ -206,6 +311,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
 
     return (
         <View style={styles.root}>
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             {/* Top bar */}
             <View style={styles.topBar}>
@@ -217,7 +323,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                     <Text style={styles.topBarSub}>4 ahead · 1 passed</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.mapBtn}
+                    style={styles.cartBtn}
                     onPress={() =>
                         navigation
                             .getParent<NativeStackNavigationProp<RootStackParamList>>()
@@ -228,60 +334,87 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                 </TouchableOpacity>
             </View>
 
-            {/* Route progress */}
-            <View style={styles.routeBarWrap}>
-                <RouteProgressBar />
+            {/* Route progress — hidden while user is searching */}
+            {!isSearching && (
+                <View style={styles.routeBarWrap}>
+                    <RouteProgressBar />
+                </View>
+            )}
+
+            {/* ── Search bar ───────────────────────────────────────────────── */}
+            <View style={styles.searchContainer}>
+                <SearchBar
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    focused={searchFocused}
+                    onClear={() => setSearchQuery('')}
+                />
+                {/* Result count shown only during active search */}
+                {isSearching && (
+                    <View style={styles.resultBadge}>
+                        <Text style={styles.resultBadgeText}>
+                            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                        </Text>
+                    </View>
+                )}
             </View>
 
-            {/* ── Filter chips ──────────────────────────────────────────────────
-                FIX: paddingVertical must be in contentContainerStyle, NOT style.
-                     Padding on a horizontal ScrollView's outer style gets clipped.
-                     Added explicit height so the row never collapses on Android.
-            ─────────────────────────────────────────────────────────────────── */}
-            <View>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.filterScroll}
-                    contentContainerStyle={styles.filterScrollContent}
-                >
-                    {FILTERS.map(f => (
-                        <TouchableOpacity
-                            key={f}
-                            style={[
-                                styles.filterChip,
-                                activeFilter === f && styles.filterChipActive,
-                            ]}
-                            onPress={() => setActiveFilter(f)}
-                        >
-                            <Text
+            {/* Filter chips — hidden while searching */}
+            {!isSearching && (
+                <View>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.filterScroll}
+                        contentContainerStyle={styles.filterScrollContent}
+                    >
+                        {FILTERS.map(f => (
+                            <TouchableOpacity
+                                key={f}
                                 style={[
-                                    styles.filterText,
-                                    activeFilter === f && styles.filterTextActive,
+                                    styles.filterChip,
+                                    activeFilter === f && styles.filterChipActive,
                                 ]}
+                                onPress={() => setActiveFilter(f)}
                             >
-                                {f}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
+                                <Text
+                                    style={[
+                                        styles.filterText,
+                                        activeFilter === f && styles.filterTextActive,
+                                    ]}
+                                >
+                                    {f}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Restaurant list */}
             <ScrollView
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
-                <View style={styles.routeLineVertical} />
-                {ROUTE_RESTAURANTS.map(r => (
-                    <RestaurantRow key={r.id} r={r} />
-                ))}
+                {!isSearching && <View style={styles.routeLineVertical} />}
+
+                {filtered.length === 0 ? (
+                    <NoResults query={searchQuery} />
+                ) : (
+                    filtered.map(r => <RestaurantRow key={r.id} r={r} />)
+                )}
+
                 <View style={{ height: 40 }} />
             </ScrollView>
         </View>
     );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
@@ -313,7 +446,7 @@ const styles = StyleSheet.create({
         letterSpacing: -0.3,
     },
     topBarSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
-    mapBtn: {
+    cartBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -370,32 +503,73 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: Colors.bgCard,
     },
-    routeLabels: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8,
-    },
+    routeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
     routeEndLabel: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
     routeDistLabel: { fontSize: 11, color: Colors.textMuted },
 
+    // ── Search ────────────────────────────────────────────────────────────────
+    searchContainer: {
+        backgroundColor: Colors.bgCard,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+        gap: 8,
+    },
+    searchWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 46,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bgInput,
+        borderWidth: 1.5,
+        borderColor: Colors.border,
+        paddingHorizontal: 12,
+        gap: 8,
+    },
+    searchWrapFocused: {
+        borderColor: Colors.amber,
+        backgroundColor: '#FFFAF6',
+    },
+    searchIcon: { fontSize: 16 },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        fontWeight: '500',
+        color: Colors.textPrimary,
+        padding: 0,
+    },
+    clearBtn: { padding: 2 },
+    clearCircle: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: Colors.bgElevated,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    clearX: { fontSize: 9, color: Colors.textSecondary, fontWeight: '800' },
+    resultBadge: {
+        alignSelf: 'flex-start',
+        backgroundColor: Colors.amberGlow,
+        borderRadius: Radius.full,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: Colors.borderActive,
+    },
+    resultBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.amber },
+
     // ── Filter strip ──────────────────────────────────────────────────────────
-    // FIX: height set here so the row has a defined size on all platforms.
-    //      paddingVertical lives in filterScrollContent, not here.
     filterScroll: {
-        height: 56, // explicit height — prevents collapse
+        height: 56,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
         backgroundColor: Colors.bgCard,
     },
-    // FIX: vertical padding moved from filterScroll style → contentContainerStyle
-    //      so chips are not clipped by the ScrollView's own bounds.
-    filterScrollContent: {
-        paddingHorizontal: 20,
-        paddingVertical: 10, // chips are centred vertically in the 56px row
-        alignItems: 'center', // keeps all chips at the same vertical midpoint
-    },
+    filterScrollContent: { paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
     filterChip: {
-        height: 34, // explicit chip height
+        height: 34,
         paddingHorizontal: 16,
         borderRadius: Radius.full,
         backgroundColor: Colors.bgElevated,
@@ -403,18 +577,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.border,
         alignItems: 'center',
-        justifyContent: 'center', // vertically centre the label inside the chip
+        justifyContent: 'center',
     },
-    filterChipActive: {
-        backgroundColor: Colors.amberGlow,
-        borderColor: Colors.amber,
-    },
-    filterText: {
-        fontSize: 12,
-        color: Colors.textSecondary,
-        fontWeight: '600',
-        lineHeight: 16, // prevents text clipping on Android
-    },
+    filterChipActive: { backgroundColor: Colors.amberGlow, borderColor: Colors.amber },
+    filterText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', lineHeight: 16 },
     filterTextActive: { color: Colors.amber },
 
     // ── List ──────────────────────────────────────────────────────────────────
@@ -481,11 +647,7 @@ const styles = StyleSheet.create({
     },
     vegCircle: { width: 7, height: 7, borderRadius: 3.5 },
     rowInfoWrap: { flex: 1, gap: 6 },
-    rowNameRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
+    rowNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     rowName: {
         fontSize: 15,
         fontWeight: '700',
@@ -495,6 +657,14 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     rowNamePassed: { color: Colors.textMuted },
+
+    // Highlighted match portion
+    highlight: {
+        color: Colors.amber,
+        fontWeight: '800',
+        backgroundColor: Colors.amberGlow,
+    },
+
     rowRating: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -536,12 +706,7 @@ const styles = StyleSheet.create({
         ...Shadow.amber,
     },
     preOrderText: { fontSize: 12, fontWeight: '700', color: Colors.textOnAmber },
-    passedLabel: {
-        fontSize: 11,
-        color: Colors.textMuted,
-        fontStyle: 'italic',
-        marginTop: 2,
-    },
+    passedLabel: { fontSize: 11, color: Colors.textMuted, fontStyle: 'italic', marginTop: 2 },
     routeConnectorDot: {
         position: 'absolute',
         left: -27,
@@ -554,4 +719,21 @@ const styles = StyleSheet.create({
         borderColor: Colors.bg,
     },
     routeConnectorDotPassed: { backgroundColor: Colors.passed },
+
+    // ── No results ────────────────────────────────────────────────────────────
+    noResults: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 10 },
+    noResultsEmoji: { fontSize: 48, marginBottom: 4 },
+    noResultsTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+        letterSpacing: -0.4,
+    },
+    noResultsSub: {
+        fontSize: 13,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    noResultsQuery: { color: Colors.amber, fontWeight: '700' },
 });
