@@ -151,6 +151,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
     const [activeFilter, setActiveFilter] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchFocused, setFocused] = useState(false);
+    const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
 
     const isSearching = searchQuery.trim().length > 0;
 
@@ -208,14 +209,16 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                     styles.rowCard,
                     isPassed && styles.rowCardPassed,
                     isNearest && styles.rowCardNearest,
+                    selectedRestaurantId === r.id && styles.rowCardSelected,
                 ]}
                 activeOpacity={isPassed ? 1 : 0.8}
                 disabled={isPassed}
-                onPress={() =>
+                onPress={() => {
+                    setSelectedRestaurantId(r.id);
                     navigation
                         .getParent<NativeStackNavigationProp<RootStackParamList>>()
-                        .navigate('menu')
-                }
+                        .navigate('menu');
+                }}
             >
                 {isNearest && (
                     <View style={styles.nearestBadge}>
@@ -609,6 +612,13 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         padding: 14,
         ...Shadow.card,
+    },
+    rowCardSelected: {
+        borderColor: Colors.amber,
+        borderWidth: 2,
+        shadowColor: Colors.amber,
+        shadowOpacity: 0.22,
+        elevation: 8,
     },
     rowCardPassed: { opacity: 0.45 },
     rowCardNearest: { borderColor: Colors.amber, borderWidth: 1.5 },
