@@ -2,39 +2,41 @@
 
 export const Colors = {
   // Core backgrounds
-  bg: '#F5F2ED',
+  bg: '#FFF8ED',
   bgCard: '#FFFFFF',
-  bgElevated: '#EEE9E2',
-  bgInput: '#F0EDE8',
+  bgElevated: '#FFECD2',
+  bgInput: '#FFF2DE',
 
   // Brand
-  amber: '#E86A1A',
-  amberLight: '#F08040',
-  amberGlow: 'rgba(232,106,26,0.12)',
-  amberGlow2: 'rgba(232,106,26,0.08)',
+  brandRed: '#D61A1A',
+  brandYellow: '#FFD300',
+  amber: '#FFB300',
+  amberLight: '#FFD140',
+  amberGlow: 'rgba(255,195,0,0.18)',
+  amberGlow2: 'rgba(255,195,0,0.1)',
 
   // Greens
   vegGreen: '#16A34A',
   successGreen: '#15803D',
 
   // Text
-  textPrimary: '#1A1610',
-  textSecondary: '#6B6560',
-  textMuted: '#B0A89E',
-  textOnAmber: '#FFFFFF',
+  textPrimary: '#261B0F',
+  textSecondary: '#6A584A',
+  textMuted: '#A98F7D',
+  textOnAmber: '#2D1000',
 
   // Accents
   blue: '#2563EB',
-  redPin: '#DC2626',
+  redPin: '#C62828',
 
   // Borders
-  border: 'rgba(0,0,0,0.08)',
-  borderActive: 'rgba(232,106,26,0.35)',
+  border: 'rgba(222,138,16,0.24)',
+  borderActive: 'rgba(255,195,0,0.45)',
 
   // Status
-  ahead: '#E86A1A',
-  passed: '#D4CFC8',
-  passedText: '#A09890',
+  ahead: '#D61A1A',
+  passed: '#F8E5C4',
+  passedText: '#B88357',
 };
 
 export const Fonts = {

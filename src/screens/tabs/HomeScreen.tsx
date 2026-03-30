@@ -22,9 +22,9 @@ const { width } = Dimensions.get('window');
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const OFFERS = [
-    { id: '1', label: '10% Off',   sub: 'on all pre-orders',  emoji: '🎉', color: Colors.amber,  bg: 'rgba(232,106,26,0.10)' },
-    { id: '2', label: 'Free Chai', sub: 'orders above ₹199',  emoji: '☕', color: '#2563EB',     bg: 'rgba(37,99,235,0.10)'  },
-    { id: '3', label: '₹50 Off',   sub: 'first order',        emoji: '🔥', color: '#9333EA',     bg: 'rgba(147,51,234,0.10)' },
+    { id: '1', label: '10% Off',   sub: 'on all pre-orders',  emoji: '🎉', color: Colors.brandRed,    bg: 'rgba(214,26,26,0.12)' },
+    { id: '2', label: 'Free Chai', sub: 'orders above ₹199',  emoji: '☕', color: Colors.brandYellow, bg: 'rgba(255,211,0,0.12)' },
+    { id: '3', label: '₹50 Off',   sub: 'first order',        emoji: '🔥', color: '#9333EA',          bg: 'rgba(147,51,234,0.10)' },
 ];
 
 const CATEGORIES = [
@@ -247,7 +247,7 @@ export default function HomeScreen({ navigation }: homeProps) {
     // ── Render ─────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.amber} />
+            <StatusBar barStyle="light-content" backgroundColor={Colors.brandRed} />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
 
     // ── HERO ──────────────────────────────────────────────────────
     hero: {
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandRed,
         paddingTop: Platform.OS === 'android' ? 40 : 64,
         paddingHorizontal: 22,
         paddingBottom: 52, // extra so search card overlaps cleanly
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
         width: 280,
         height: 280,
         borderRadius: 140,
-        backgroundColor: 'rgba(255,255,255,0.10)',
+        backgroundColor: 'rgba(255,211,0,0.18)',
         top: -90,
         right: -60,
     },
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
         width: 180,
         height: 180,
         borderRadius: 90,
-        backgroundColor: 'rgba(255,255,255,0.06)',
+        backgroundColor: 'rgba(255,211,0,0.12)',
         bottom: -40,
         left: -50,
     },

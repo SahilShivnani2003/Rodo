@@ -113,7 +113,7 @@ const stepper = StyleSheet.create({
     wrap: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandYellow,
         borderRadius: Radius.full,
         overflow: 'hidden',
         ...Shadow.amber,
@@ -632,14 +632,14 @@ const styles = StyleSheet.create({
     },
     restaurantMeta: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
     addMoreBtn: {
-        backgroundColor: Colors.amberGlow,
+        backgroundColor: Colors.brandYellow,
         borderRadius: Radius.full,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderWidth: 1,
-        borderColor: Colors.borderActive,
+        borderColor: Colors.brandRed,
     },
-    addMoreText: { fontSize: 12, fontWeight: '700', color: Colors.amber },
+    addMoreText: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
 
     // Section header
     sectionHeader: {
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    itemTotal: { fontSize: 12, fontWeight: '700', color: Colors.amber },
+    itemTotal: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
     itemDivider: {
         height: 1,
         backgroundColor: Colors.border,
@@ -711,11 +711,11 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     etaChipActive: {
-        backgroundColor: Colors.amberGlow,
-        borderColor: Colors.amber,
+        backgroundColor: Colors.amberGlow2,
+        borderColor: Colors.brandRed,
     },
     etaText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-    etaTextActive: { color: Colors.amber, fontWeight: '700' },
+    etaTextActive: { color: Colors.brandRed, fontWeight: '700' },
 
     // Dine mode
     dineRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
@@ -733,12 +733,12 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     dineChipActive: {
-        backgroundColor: Colors.amberGlow,
-        borderColor: Colors.amber,
+        backgroundColor: Colors.amberGlow2,
+        borderColor: Colors.brandRed,
     },
     dineEmoji: { fontSize: 18 },
     dineText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-    dineTextActive: { color: Colors.amber, fontWeight: '700' },
+    dineTextActive: { color: Colors.brandRed, fontWeight: '700' },
 
     // Special note
     noteToggle: {
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     couponApplyBtn: {
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandRed,
         borderRadius: Radius.md,
         paddingHorizontal: 20,
         alignItems: 'center',
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     checkoutItems: { fontSize: 11, color: Colors.textSecondary },
     checkoutBtn: {
         flex: 1,
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandRed,
         borderRadius: Radius.md,
         paddingVertical: 15,
         flexDirection: 'row',

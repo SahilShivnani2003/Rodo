@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
         left: 0,
         bottom: 0,
         width: '28%',
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandRed,
         borderRadius: 3,
     },
     routeMarker: {
@@ -496,13 +496,13 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: Colors.amberGlow,
+        backgroundColor: Colors.amberGlow2,
     },
     routeMarkerCore: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: Colors.amber,
+        backgroundColor: Colors.brandRed,
         borderWidth: 2,
         borderColor: Colors.bgCard,
     },
@@ -531,8 +531,8 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     searchWrapFocused: {
-        borderColor: Colors.amber,
-        backgroundColor: '#FFFAF6',
+        borderColor: Colors.brandRed,
+        backgroundColor: '#FFF3E0',
     },
     searchIcon: { fontSize: 16 },
     searchInput: {

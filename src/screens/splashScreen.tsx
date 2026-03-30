@@ -404,7 +404,7 @@ export default function SplashScreen({ navigation }: splashProps) {
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: Colors.bg,
+        backgroundColor: Colors.amber,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     halo: {
         position: 'absolute',
         borderRadius: 9999,
-        backgroundColor: Colors.amber,
+        backgroundColor: '#D61A1A',
     },
     halo1: {
         width: 300,
@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
         width: 3,
         height: 3,
         borderRadius: 1.5,
-        backgroundColor: Colors.amber,
-        opacity: 0.1,
+        backgroundColor: '#D61A1A',
+        opacity: 0.13,
     },
 
     // ── pill badge ──
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         overflow: 'hidden',
         borderWidth: 1.5,
-        borderColor: 'rgba(232,106,26,0.22)',
+        borderColor: 'rgba(214,26,26,0.3)',
         marginBottom: 28,
-        shadowColor: Colors.amber,
+        shadowColor: '#D61A1A',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.28,
+        shadowOpacity: 0.32,
         shadowRadius: 20,
-        elevation: 10,
+        elevation: 11,
         backgroundColor: Colors.bgElevated,
     },
     logoImage: {
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     },
     accentLineFill: {
         height: '100%',
-        backgroundColor: Colors.amber,
+        backgroundColor: '#D61A1A',
         borderRadius: 2,
     },
 
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
         fontFamily: 'DM Sans',
         fontSize: 14.5,
         fontWeight: '500',
-        color: Colors.textSecondary,
+        color: '#D61A1A',
         letterSpacing: 0.15,
         fontStyle: 'italic',
     },
