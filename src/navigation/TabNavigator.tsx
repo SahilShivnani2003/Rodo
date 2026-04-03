@@ -1,16 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import HomeScreen from '../screens/tabs/HomeScreen';
-import RestaurantListScreen from '../screens/tabs/RestaurantScreen';
-import OrderTrackingScreen from '../screens/tabs/OrderScreen';
-import { ProfileScreen } from '../screens/tabs/ProfileScreen';
+import HomeScreen from '../features/dashboard/screens/DashboardScreen';
+import RestaurantListScreen from '../features/restaurant/screens/RestaurantScreen';
+import OrderTrackingScreen from '../features/orders/screens/OrderScreen';
+import { ProfileScreen } from '../features/profile/screens/ProfileScreen';
 import { CustomTabBar } from '../components/BottomTabBar';
-
-export type MainTabParamList = {
-    home: undefined;
-    restaurants: undefined;
-    orders: undefined;
-    profile: undefined;
-};
+import { MainTabParamList } from '@/types/MainTabParamList';
 
 export const TABS: {
     name: keyof MainTabParamList;

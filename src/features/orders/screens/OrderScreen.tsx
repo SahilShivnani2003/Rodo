@@ -8,9 +8,9 @@ import {
     Platform,
     StatusBar,
 } from 'react-native';
-import { Colors, Radius, Shadow } from '../../theme/index';
+import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainTabParamList } from '../../navigation/TabNavigator';
+import { MainTabParamList } from '@/types/MainTabParamList';
 
 const ORDER = {
     id: 'RD-2891',

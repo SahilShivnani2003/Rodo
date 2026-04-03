@@ -1,8 +1,8 @@
 import { View, StatusBar, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Colors, Shadow, Radius } from '../../theme';
+import { Colors, Shadow, Radius } from '../../../theme';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainTabParamList } from '../../navigation/TabNavigator';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import { RootStackParamList } from '@/types/RootStackParamList';
+import { MainTabParamList } from '@/types/MainTabParamList';
 
 type profileProps = NativeStackScreenProps<MainTabParamList, 'profile'>;
 

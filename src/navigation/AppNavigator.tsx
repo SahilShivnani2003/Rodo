@@ -1,26 +1,14 @@
-import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/splashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
-import LoginScreen from '../screens/auth/LoginScreen';
-import LoginSuccessScreen from '../screens/auth/LoginSuccesScreen';
-import OTPScreen from '../screens/auth/OtpScreen';
-import TabNavigator, { MainTabParamList } from './TabNavigator';
-import MenuScreen from '../screens/MenuScreen';
-import CartScreen from '../screens/CartScreen';
-
-export type RootStackParamList = {
-    splash: undefined;
-    welcome: undefined;
-    login: undefined;
-    otpLogin: {
-        phone: string;
-    };
-    loginSuccess: undefined;
-    main: NavigatorScreenParams<MainTabParamList>;
-    menu: undefined;
-    cart: undefined;
-};
+import LoginScreen from '../features/auth/screens/LoginScreen';
+import LoginSuccessScreen from '../features/auth/screens/LoginSuccesScreen';
+import OTPScreen from '../features/auth/screens/OtpScreen';
+import TabNavigator from './TabNavigator';
+import MenuScreen from '../features/menu/screens/MenuScreen';
+import CartScreen from '../features/cart/screens/CartScreen';
+import { RootStackParamList } from '@/types/RootStackParamList';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 

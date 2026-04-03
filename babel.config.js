@@ -17,6 +17,7 @@ module.exports = {
           '@context': './src/context',
           '@types': './src/types',
           '@store': './src/store',
+          '@theme': './src/theme',
         }
       }
     ]

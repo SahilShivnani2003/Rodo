@@ -1,6 +1,3 @@
-// LoginSuccessScreen.tsx — Rodo
-// Celebration screen shown after successful OTP verification
-
 import React, { useEffect, useRef } from 'react';
 import {
     View,
@@ -11,9 +8,9 @@ import {
     TouchableOpacity,
     Dimensions,
 } from 'react-native';
-import { Colors, Radius, Shadow } from '../../theme/index';
+import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import { RootStackParamList } from '@/types/RootStackParamList';
 
 type loginSuccessProps = NativeStackScreenProps<RootStackParamList, 'loginSuccess'>;
 

@@ -9,10 +9,10 @@ import {
     StatusBar,
     TextInput,
 } from 'react-native';
-import { Colors, Radius, Shadow } from '../../theme/index';
+import { Colors, Radius, Shadow } from '../../../theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainTabParamList } from '../../navigation/TabNavigator';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import { RootStackParamList } from '@/types/RootStackParamList';
+import { MainTabParamList } from '@/types/MainTabParamList';
 
 const ROUTE_RESTAURANTS = [
     {

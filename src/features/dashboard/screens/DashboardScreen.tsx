@@ -12,11 +12,11 @@ import {
     Platform,
     Animated,
 } from 'react-native';
-import { Colors, Radius, Shadow } from '../../theme/index';
+import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { MainTabParamList } from '../../navigation/TabNavigator';
-import { RootStackParamList } from '../../navigation/AppNavigator';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { RootStackParamList } from '@/types/RootStackParamList';
+import { MainTabParamList } from '@/types/MainTabParamList';
 
 const { width } = Dimensions.get('window');
 
@@ -133,7 +133,7 @@ function PressCard({
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function HomeScreen({ navigation }: homeProps) {
+export default function DashboardScreen({ navigation }: homeProps) {
     const [from, setFrom] = useState('Bhopal');
     const [to, setTo] = useState('Indore');
     const [searchQuery, setSearchQuery] = useState('');
