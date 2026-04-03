@@ -16,6 +16,7 @@ import { Colors, Radius, Shadow } from '../../theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MainTabParamList } from '../../navigation/TabNavigator';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const { width } = Dimensions.get('window');
 
@@ -292,26 +293,23 @@ export default function HomeScreen({ navigation }: homeProps) {
                     <View style={styles.heroGreetingBlock}>
                         <Text style={styles.heroGreeting}>Hey Rahul! 👋</Text>
                         <Text style={styles.heroSub}>
-                            Hungry on the highway?{'\n'}We've got you covered.
+                           Pre-order highway food so it's ready{'\n'}When you arrive. No waiting, just eating!
                         </Text>
-                    </View>
+                    </View>                    
 
-                    {/* Stats strip — frosted glass style */}
-                    <View style={styles.heroStats}>
-                        {[
-                            { label: 'Restaurants', value: '24+', icon: '🍽' },
-                            { label: 'On Route',    value: '8',    icon: '📍' },
-                            { label: 'Avg ETA',     value: '28m',  icon: '⚡' },
-                        ].map((s, i) => (
-                            <React.Fragment key={s.label}>
-                                <View style={styles.heroStat}>
-                                    <Text style={styles.heroStatIcon}>{s.icon}</Text>
-                                    <Text style={styles.heroStatValue}>{s.value}</Text>
-                                    <Text style={styles.heroStatLabel}>{s.label}</Text>
-                                </View>
-                                {i < 2 && <View style={styles.heroStatDivider} />}
-                            </React.Fragment>
-                        ))}
+                    <View>
+                        <View>
+                            <Icon name='circle-samll' size={18} />
+                            <Text>Select Route</Text>
+                        </View>
+                        <View>
+                            <Icon name='circle-samll' size={18} />
+                            <Text>Order Food Ahead</Text>
+                        </View>
+                        <View>
+                            <Icon name='circle-samll' size={18} />
+                            <Text>Enjoy Hot & Fresh Food</Text>
+                        </View>
                     </View>
 
                     {/* CTA row */}
@@ -324,10 +322,6 @@ export default function HomeScreen({ navigation }: homeProps) {
                             <Text style={styles.heroCtaText}>Start Journey</Text>
                             <Text style={styles.heroCtaArrow}>→</Text>
                         </TouchableOpacity>
-                        <View style={styles.heroLiveChip}>
-                            <View style={styles.heroLiveDot} />
-                            <Text style={styles.heroLiveText}>Live Tracking</Text>
-                        </View>
                     </View>
                 </View>
 

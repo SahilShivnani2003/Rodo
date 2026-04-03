@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
         fontFamily: 'DM Sans',
         fontSize: 14.5,
         fontWeight: '500',
-        color: '#D61A1A',
+        color: Colors.bg,
         letterSpacing: 0.15,
         fontStyle: 'italic',
     },
