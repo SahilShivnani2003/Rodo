@@ -1,10 +1,11 @@
 import { useAuthStore } from '@/store/useAuthStore';
+import { ApiError } from '@/types/ApiError';
 import axios from 'axios';
 
-const BASE_URL = '';
+const BASE_URL = 'https://rodofood.onrender.com/api/v1';
 
 //Public client for public routes
-const publicClient = axios.create({
+export const publicClient = axios.create({
     baseURL: BASE_URL,
     headers: {
         "Content-Type": "application/json"
@@ -16,21 +17,18 @@ const publicClient = axios.create({
 publicClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        const status = error?.response?.status;
-
-        const message = error?.response?.data?.message ||
-            error?.message || "Something went wrong.";
-
-        return Promise.reject({
-            status,
-            message,
+        const apiError: ApiError = {
+            status: error?.response?.status,
+            message: error?.response?.data?.message || error?.message || "Something went wrong",
             data: error?.response?.data
-        });
+        }
+
+        return Promise.reject(apiError);
     },
 );
 
 //Private client for protected routes
-const privateClient = axios.create({
+export const privateClient = axios.create({
     baseURL: BASE_URL,
     headers: {
         "Content-Type": "application/json"
@@ -56,14 +54,13 @@ privateClient.interceptors.request.use(
 privateClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        const status = error?.response?.status;
 
-        const message = error?.response?.data?.message || error?.message || "Something went wrong";
-
-        return Promise.reject({
-            status,
-            message,
+        const apiError: ApiError = {
+            status: error?.response?.status,
+            message: error?.response?.data?.message || error?.message || "Something went wrong",
             data: error?.response?.data
-        })
+        }
+
+        return Promise.reject(apiError);
     }
 )

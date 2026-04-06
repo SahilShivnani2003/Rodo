@@ -1,12 +1,13 @@
 export type UserRole = 'customer' | 'restaurant' | 'admin';
 
 export interface User {
+  _id?: string;
   name?: string;
   phone: string;
   email?: string;
 
   role: UserRole;
-  isActive: boolean;
+  isActive?: boolean;
 
   profileImage?: string;
   fcmToken?: string;

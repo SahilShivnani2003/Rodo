@@ -14,9 +14,14 @@ import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 
+// ─── Dev Mode Config ──────────────────────────────────────────────────────────
+const DEV_MODE = __DEV__;
+const DEV_OTP = '123456'; // The fixed OTP accepted in dev/staging
+// ─────────────────────────────────────────────────────────────────────────────
+
 const OTP_LENGTH = 6;
 
-type otpProps = NativeStackScreenProps<RootStackParamList, 'otpLogin'>
+type otpProps = NativeStackScreenProps<RootStackParamList, 'otpLogin'>;
 
 export default function OTPScreen({ navigation, route }: otpProps) {
     const phone = route?.params?.phone || '98765 43210';
@@ -25,10 +30,10 @@ export default function OTPScreen({ navigation, route }: otpProps) {
     const [canResend, setCanResend] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [devVisible, setDevVisible] = useState(false); // show/hide the OTP badge
 
     const inputRefs = useRef<(TextInput | null)[]>(Array(OTP_LENGTH).fill(null));
     const shakeAnim = useRef(new Animated.Value(0)).current;
-    const successScale = useRef(new Animated.Value(0)).current;
     const buttonScale = useRef(new Animated.Value(1)).current;
 
     // Timer countdown
@@ -47,19 +52,13 @@ export default function OTPScreen({ navigation, route }: otpProps) {
         next[idx] = digit;
         setOtp(next);
         setError('');
-
-        if (digit && idx < OTP_LENGTH - 1) {
-            inputRefs.current[idx + 1]?.focus();
-        }
-        if (!digit && idx > 0) {
-            inputRefs.current[idx - 1]?.focus();
-        }
+        if (digit && idx < OTP_LENGTH - 1) inputRefs.current[idx + 1]?.focus();
+        if (!digit && idx > 0) inputRefs.current[idx - 1]?.focus();
     };
 
     const handleKeyPress = (e: any, idx: number) => {
-        if (e.nativeEvent.key === 'Backspace' && !otp[idx] && idx > 0) {
+        if (e.nativeEvent.key === 'Backspace' && !otp[idx] && idx > 0)
             inputRefs.current[idx - 1]?.focus();
-        }
     };
 
     const handleVerify = () => {
@@ -83,7 +82,6 @@ export default function OTPScreen({ navigation, route }: otpProps) {
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            // Navigate to success then home
             navigation.navigate('loginSuccess');
         }, 1000);
     };
@@ -94,6 +92,14 @@ export default function OTPScreen({ navigation, route }: otpProps) {
         setCanResend(false);
         setOtp(Array(OTP_LENGTH).fill(''));
         inputRefs.current[0]?.focus();
+    };
+
+    /** Dev helper: auto-fill the known OTP and jump to last box */
+    const fillDevOtp = () => {
+        const digits = DEV_OTP.split('');
+        setOtp(digits);
+        setError('');
+        requestAnimationFrame(() => inputRefs.current[OTP_LENGTH - 1]?.focus());
     };
 
     const filled = otp.filter(Boolean).length;
@@ -111,12 +117,44 @@ export default function OTPScreen({ navigation, route }: otpProps) {
             </TouchableOpacity>
 
             <View style={styles.content}>
+                {/* ── Dev OTP Banner ── */}
+                {DEV_MODE && (
+                    <View style={styles.devBanner}>
+                        <View style={styles.devBannerLeft}>
+                            <Text style={styles.devBannerIcon}>🛠</Text>
+                            <Text style={styles.devBannerLabel}>Dev OTP</Text>
+                            {devVisible ? (
+                                <Text style={styles.devBannerOtp}>{DEV_OTP}</Text>
+                            ) : (
+                                <Text style={styles.devBannerHidden}>••••••</Text>
+                            )}
+                        </View>
+                        <View style={styles.devBannerActions}>
+                            <TouchableOpacity
+                                style={styles.devActionBtn}
+                                onPress={() => setDevVisible(v => !v)}
+                            >
+                                <Text style={styles.devActionText}>
+                                    {devVisible ? '🙈 Hide' : '👁 Show'}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.devActionBtn, styles.devActionFill]}
+                                onPress={fillDevOtp}
+                            >
+                                <Text style={[styles.devActionText, styles.devActionFillText]}>
+                                    ⚡ Fill
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
                 {/* Icon */}
                 <View style={styles.iconWrap}>
                     <View style={styles.iconBg}>
                         <Text style={styles.iconEmoji}>📱</Text>
                     </View>
-                    {/* Progress ring around icon */}
                     <View style={styles.progressRing} />
                 </View>
 
@@ -155,7 +193,6 @@ export default function OTPScreen({ navigation, route }: otpProps) {
                                 autoComplete="sms-otp"
                                 selectTextOnFocus
                             />
-                            {/* Active cursor */}
                             {i === filled && !digit && <View style={styles.cursor} />}
                         </View>
                     ))}
@@ -168,7 +205,7 @@ export default function OTPScreen({ navigation, route }: otpProps) {
                     </View>
                 ) : null}
 
-                {/* Progress indicator */}
+                {/* Progress */}
                 <View style={styles.progressBar}>
                     <View
                         style={[styles.progressFill, { width: `${(filled / OTP_LENGTH) * 100}%` }]}
@@ -241,11 +278,74 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: 28,
-        paddingTop: 28,
+        paddingTop: 20,
         alignItems: 'center',
     },
 
-    // Icon
+    // ── Dev Banner ────────────────────────────────────────────────────────────
+    devBanner: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#EEF4FF',
+        borderWidth: 1,
+        borderColor: '#C7D9FF',
+        borderRadius: Radius.md,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        marginBottom: 20,
+    },
+    devBannerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    devBannerIcon: { fontSize: 14 },
+    devBannerLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#2563EB',
+    },
+    devBannerOtp: {
+        fontSize: 16,
+        fontWeight: '900',
+        color: '#1E40AF',
+        letterSpacing: 3,
+        fontVariant: ['tabular-nums'],
+    },
+    devBannerHidden: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#93C5FD',
+        letterSpacing: 3,
+    },
+    devBannerActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    devActionBtn: {
+        borderRadius: 99,
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        backgroundColor: '#fff',
+    },
+    devActionFill: {
+        backgroundColor: '#2563EB',
+        borderColor: '#2563EB',
+    },
+    devActionText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#2563EB',
+    },
+    devActionFillText: {
+        color: '#fff',
+    },
+    // ─────────────────────────────────────────────────────────────────────────
+
     iconWrap: {
         position: 'relative',
         marginBottom: 28,
@@ -289,22 +389,10 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         marginBottom: 36,
     },
-    phoneHighlight: {
-        color: Colors.textPrimary,
-        fontWeight: '700',
-    },
-    editLink: {
-        color: Colors.amber,
-        fontWeight: '700',
-        fontSize: 14,
-    },
+    phoneHighlight: { color: Colors.textPrimary, fontWeight: '700' },
+    editLink: { color: Colors.amber, fontWeight: '700', fontSize: 14 },
 
-    // OTP boxes
-    otpRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 12,
-    },
+    otpRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
     otpBox: {
         width: 46,
         height: 56,
@@ -317,15 +405,8 @@ const styles = StyleSheet.create({
         position: 'relative',
         ...Shadow.card,
     },
-    otpBoxFilled: {
-        borderColor: Colors.amber,
-        backgroundColor: '#FFFAF6',
-    },
-    otpBoxActive: {
-        borderColor: Colors.amber,
-        borderWidth: 2,
-        backgroundColor: '#FFFAF6',
-    },
+    otpBoxFilled: { borderColor: Colors.amber, backgroundColor: '#FFFAF6' },
+    otpBoxActive: { borderColor: Colors.amber, borderWidth: 2, backgroundColor: '#FFFAF6' },
     otpInput: {
         fontSize: 22,
         fontWeight: '800',
@@ -343,7 +424,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.amber,
     },
 
-    // Error
     errorWrap: {
         backgroundColor: '#FEE2E2',
         borderRadius: Radius.sm,
@@ -355,7 +435,6 @@ const styles = StyleSheet.create({
     },
     errorText: { fontSize: 12, color: '#DC2626', fontWeight: '600' },
 
-    // Progress
     progressBar: {
         width: '100%',
         height: 3,
@@ -377,7 +456,6 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
 
-    // Resend
     resendRow: {
         flexDirection: 'row',
         gap: 6,
@@ -389,7 +467,6 @@ const styles = StyleSheet.create({
     resendTimer: { fontSize: 13, color: Colors.textSecondary },
     timerNum: { fontWeight: '700', color: Colors.textPrimary },
 
-    // Verify button
     verifyWrap: { width: '100%', marginBottom: 16 },
     verifyBtn: {
         backgroundColor: Colors.amber,
@@ -414,7 +491,6 @@ const styles = StyleSheet.create({
     },
     verifyArrow: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
 
-    // Security
     securityNote: {
         flexDirection: 'row',
         alignItems: 'center',

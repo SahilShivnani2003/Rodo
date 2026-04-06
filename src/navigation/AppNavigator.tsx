@@ -10,24 +10,30 @@ import MenuScreen from '@/features/menu/screens/MenuScreen';
 import SplashScreen from '@/screens/splashScreen';
 import WelcomeScreen from '@/screens/WelcomeScreen';
 import TabNavigator from './TabNavigator';
+import RegisterScreen from '@/features/auth/screens/RegisterScreen';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/services/queryClient';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
     return (
-        <AlertProvider>
-            <NavigationContainer>
-                <Stack.Navigator screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="splash" component={SplashScreen} />
-                    <Stack.Screen name="welcome" component={WelcomeScreen} />
-                    <Stack.Screen name="login" component={LoginScreen} />
-                    <Stack.Screen name="loginSuccess" component={LoginSuccessScreen} />
-                    <Stack.Screen name="otpLogin" component={OTPScreen} />
-                    <Stack.Screen name="main" component={TabNavigator} />
-                    <Stack.Screen name="menu" component={MenuScreen} />
-                    <Stack.Screen name="cart" component={CartScreen} />
-                </Stack.Navigator>
-            </NavigationContainer>
-        </AlertProvider>
+        <QueryClientProvider client={queryClient}>
+            <AlertProvider>
+                <NavigationContainer>
+                    <Stack.Navigator screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name="splash" component={SplashScreen} />
+                        <Stack.Screen name="welcome" component={WelcomeScreen} />
+                        <Stack.Screen name="login" component={LoginScreen} />
+                        <Stack.Screen name="register" component={RegisterScreen} />
+                        <Stack.Screen name="loginSuccess" component={LoginSuccessScreen} />
+                        <Stack.Screen name="otpLogin" component={OTPScreen} />
+                        <Stack.Screen name="main" component={TabNavigator} />
+                        <Stack.Screen name="menu" component={MenuScreen} />
+                        <Stack.Screen name="cart" component={CartScreen} />
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </AlertProvider>
+        </QueryClientProvider>
     );
 }

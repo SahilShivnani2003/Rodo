@@ -16,6 +16,21 @@ import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 
+// ─── Dev Mode Config ──────────────────────────────────────────────────────────
+const DEV_MODE = __DEV__; // flip to false to hide in production
+
+const DEV_ACCOUNTS = {
+    customer: { label: 'Customer', phone: '9876543210' },
+    restaurants: [
+        { label: 'Sehore Highway Treat', phone: '8800000001' },
+        { label: 'Midway Delite Ashta', phone: '8800000002' },
+        { label: 'Dewas Restaurant & Sweets', phone: '8800000003' },
+        { label: 'Obaidullaganj Quick Bites', phone: '8800000004' },
+        { label: 'Highway Grill & Bar-B-Q', phone: '8800000005' },
+        { label: 'Indore Sarafa Sweets', phone: '8800000006' },
+    ],
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 type loginProps = NativeStackScreenProps<RootStackParamList, 'login'>;
 
@@ -23,6 +38,7 @@ export default function LoginScreen({ navigation }: loginProps) {
     const [phone, setPhone] = useState('');
     const [focused, setFocused] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [devOpen, setDevOpen] = useState(false);
 
     const shakeAnim = useRef(new Animated.Value(0)).current;
     const buttonScale = useRef(new Animated.Value(1)).current;
@@ -31,7 +47,6 @@ export default function LoginScreen({ navigation }: loginProps) {
 
     const handleSendOTP = () => {
         if (!isValid) {
-            // Shake animation
             Animated.sequence([
                 Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
                 Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: true }),
@@ -42,7 +57,6 @@ export default function LoginScreen({ navigation }: loginProps) {
             return;
         }
 
-        // Button press animation
         Animated.sequence([
             Animated.timing(buttonScale, { toValue: 0.96, duration: 80, useNativeDriver: true }),
             Animated.timing(buttonScale, { toValue: 1, duration: 80, useNativeDriver: true }),
@@ -51,8 +65,13 @@ export default function LoginScreen({ navigation }: loginProps) {
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
-            navigation.navigate('otpLogin', {phone});
+            navigation.navigate('otpLogin', { phone });
         }, 800);
+    };
+
+    const fillPhone = (p: string) => {
+        setPhone(p);
+        setDevOpen(false);
     };
 
     return (
@@ -60,13 +79,66 @@ export default function LoginScreen({ navigation }: loginProps) {
             style={styles.root}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
-
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
+                {/* ── Dev Panel ── */}
+                {DEV_MODE && (
+                    <View style={styles.devPanel}>
+                        <TouchableOpacity
+                            style={styles.devHeader}
+                            onPress={() => setDevOpen(o => !o)}
+                            activeOpacity={0.75}
+                        >
+                            <Text style={styles.devHeaderText}>🛠 Dev Mode — Click to fill</Text>
+                            <Text style={styles.devChevron}>{devOpen ? '▲' : '▼'}</Text>
+                        </TouchableOpacity>
+
+                        {devOpen && (
+                            <View style={styles.devBody}>
+                                {/* Customer pill */}
+                                <View style={styles.devRow}>
+                                    <TouchableOpacity
+                                        style={[styles.devPill, styles.devPillCustomer]}
+                                        onPress={() => fillPhone(DEV_ACCOUNTS.customer.phone)}
+                                    >
+                                        <Text style={styles.devPillCustomerText}>
+                                            {DEV_ACCOUNTS.customer.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <Text style={styles.devPhone}>
+                                        {DEV_ACCOUNTS.customer.phone}
+                                    </Text>
+                                </View>
+
+                                {/* Divider */}
+                                <View style={styles.devSectionLabel}>
+                                    <Text style={styles.devSectionLabelText}>
+                                        🏪 RESTAURANT OWNERS
+                                    </Text>
+                                </View>
+
+                                {/* Restaurant pills */}
+                                {DEV_ACCOUNTS.restaurants.map(r => (
+                                    <TouchableOpacity
+                                        key={r.phone}
+                                        style={styles.devRestaurantRow}
+                                        onPress={() => fillPhone(r.phone)}
+                                        activeOpacity={0.65}
+                                    >
+                                        <Text style={styles.devRestaurantLabel} numberOfLines={1}>
+                                            {r.label}
+                                        </Text>
+                                        <Text style={styles.devPhone}>{r.phone}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 {/* Top illustration */}
                 <View style={styles.heroWrap}>
                     <View style={styles.heroBg}>
@@ -92,14 +164,12 @@ export default function LoginScreen({ navigation }: loginProps) {
                 >
                     <Text style={styles.inputLabel}>Mobile Number</Text>
                     <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
-                        {/* Country code */}
                         <TouchableOpacity style={styles.countryCode}>
                             <Text style={styles.flag}>🇮🇳</Text>
                             <Text style={styles.dialCode}>+91</Text>
                             <Text style={styles.chevron}>›</Text>
                         </TouchableOpacity>
                         <View style={styles.inputDivider} />
-                        {/* Number input */}
                         <TextInput
                             style={styles.phoneInput}
                             value={phone}
@@ -111,7 +181,6 @@ export default function LoginScreen({ navigation }: loginProps) {
                             onBlur={() => setFocused(false)}
                             maxLength={10}
                         />
-                        {/* Clear */}
                         {phone.length > 0 && (
                             <TouchableOpacity style={styles.clearBtn} onPress={() => setPhone('')}>
                                 <Text style={styles.clearIcon}>✕</Text>
@@ -178,6 +247,94 @@ const styles = StyleSheet.create({
         paddingTop: Platform.OS === 'android' ? 24 : 60,
     },
 
+    // ── Dev Panel ──────────────────────────────────────────────────────────────
+    devPanel: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: '#C7D9FF',
+        backgroundColor: '#EEF4FF',
+        marginBottom: 16,
+        overflow: 'hidden',
+    },
+    devHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+    },
+    devHeaderText: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#2563EB',
+        letterSpacing: 0.1,
+    },
+    devChevron: {
+        fontSize: 10,
+        color: '#2563EB',
+        fontWeight: '700',
+    },
+    devBody: {
+        paddingHorizontal: 14,
+        paddingBottom: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#C7D9FF',
+        gap: 6,
+    },
+    devRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    devPill: {
+        borderRadius: 99,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+    },
+    devPillCustomer: {
+        backgroundColor: '#22C55E',
+    },
+    devPillCustomerText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    devPhone: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#475569',
+        fontVariant: ['tabular-nums'],
+        letterSpacing: 0.3,
+    },
+    devSectionLabel: {
+        marginTop: 6,
+        marginBottom: 2,
+    },
+    devSectionLabelText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#64748B',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+    },
+    devRestaurantRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 5,
+        borderBottomWidth: 1,
+        borderBottomColor: '#DBEAFE',
+    },
+    devRestaurantLabel: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#1E40AF',
+        flex: 1,
+        marginRight: 12,
+    },
+    // ──────────────────────────────────────────────────────────────────────────
+
     backBtn: {
         width: 42,
         height: 42,
@@ -192,7 +349,6 @@ const styles = StyleSheet.create({
     },
     backIcon: { fontSize: 18, color: Colors.textPrimary, fontWeight: '700' },
 
-    // Hero
     heroWrap: { alignItems: 'center', marginBottom: 32 },
     heroBg: {
         width: '100%',
@@ -205,7 +361,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         overflow: 'hidden',
         position: 'relative',
-        marginTop: 52
+        marginTop: 12,
     },
     heroBgCircle1: {
         position: 'absolute',
@@ -238,7 +394,6 @@ const styles = StyleSheet.create({
     },
     heroCardEmoji: { fontSize: 42 },
 
-    // Header text
     headerText: { marginBottom: 28 },
     title: {
         fontSize: 34,
@@ -254,7 +409,6 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
 
-    // Input card
     inputCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -293,21 +447,9 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     flag: { fontSize: 18 },
-    dialCode: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-    },
-    chevron: {
-        fontSize: 16,
-        color: Colors.textMuted,
-        fontWeight: '600',
-    },
-    inputDivider: {
-        width: 1,
-        height: 28,
-        backgroundColor: Colors.border,
-    },
+    dialCode: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
+    chevron: { fontSize: 16, color: Colors.textMuted, fontWeight: '600' },
+    inputDivider: { width: 1, height: 28, backgroundColor: Colors.border },
     phoneInput: {
         flex: 1,
         fontSize: 18,
@@ -334,7 +476,6 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 
-    // Terms
     terms: {
         fontSize: 12,
         color: Colors.textMuted,
@@ -342,12 +483,8 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         marginBottom: 20,
     },
-    termsLink: {
-        color: Colors.amber,
-        fontWeight: '600',
-    },
+    termsLink: { color: Colors.amber, fontWeight: '600' },
 
-    // Send button
     sendBtn: {
         backgroundColor: Colors.amber,
         borderRadius: Radius.md,
@@ -369,13 +506,8 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         letterSpacing: -0.2,
     },
-    sendBtnArrow: {
-        fontSize: 18,
-        color: '#FFFFFF',
-        fontWeight: '700',
-    },
+    sendBtnArrow: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
 
-    // Divider
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -383,13 +515,8 @@ const styles = StyleSheet.create({
         marginVertical: 20,
     },
     dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-    dividerText: {
-        fontSize: 12,
-        color: Colors.textMuted,
-        fontWeight: '500',
-    },
+    dividerText: { fontSize: 12, color: Colors.textMuted, fontWeight: '500' },
 
-    // Social
     socialRow: { flexDirection: 'row', justifyContent: 'center' },
     socialBtn: {
         flexDirection: 'row',
@@ -404,9 +531,5 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     socialEmoji: { fontSize: 20 },
-    socialText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-    },
+    socialText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
 });

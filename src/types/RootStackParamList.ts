@@ -5,6 +5,7 @@ export type RootStackParamList = {
     splash: undefined;
     welcome: undefined;
     login: undefined;
+    register: undefined;
     otpLogin: {
         phone: string;
     };
