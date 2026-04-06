@@ -269,7 +269,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         <View style={styles.heroNavLeft}>
                             <View style={styles.heroLogoWrap}>
                                 <Image
-                                    source={require('../../assets/logo.jpeg')}
+                                    source={require('../../../assets/logo.jpeg')}
                                     style={styles.heroLogo}
                                     resizeMode="cover"
                                 />

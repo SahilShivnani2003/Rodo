@@ -74,6 +74,7 @@ export default function SplashScreen({ navigation }: splashProps) {
         const user = useAuthStore.getState().user;
 
         if (isAuthenticated) {
+            console.log('Navigating to logged in pages')
             if (user?.role === 'customer') {
                 navigation.replace('main', {
                     screen: 'home',
@@ -84,6 +85,7 @@ export default function SplashScreen({ navigation }: splashProps) {
                 });
             }
         } else {
+            console.log('Navigating to welcome pages')
             navigation.replace('welcome');
         }
     };
@@ -285,7 +287,7 @@ export default function SplashScreen({ navigation }: splashProps) {
                 easing: Easing.in(Easing.cubic),
                 useNativeDriver: true,
             }),
-        ]).start(()=> handleNavigation);
+        ]).start(()=> handleNavigation());
     }, []);
 
     const loaderFillWidth = loaderProgress.interpolate({
