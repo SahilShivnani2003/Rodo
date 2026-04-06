@@ -1,5 +1,6 @@
 import { MainTabParamList } from "./MainTabParamList";
 import { NavigatorScreenParams } from "@react-navigation/native";
+import { OwnerTabParamList } from "./OwnerTabParamList";
 
 export type RootStackParamList = {
     splash: undefined;
@@ -13,4 +14,7 @@ export type RootStackParamList = {
     main: NavigatorScreenParams<MainTabParamList>;
     menu: undefined;
     cart: undefined;
+    owner: NavigatorScreenParams<OwnerTabParamList>;
+    coupons: undefined;
+    addMenuItem: undefined;
 }; 

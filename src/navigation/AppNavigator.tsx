@@ -13,6 +13,9 @@ import TabNavigator from './TabNavigator';
 import RegisterScreen from '@/features/auth/screens/RegisterScreen';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/services/queryClient';
+import OwnerTabNavigator from './OwnerTabNavigator';
+import CouponsScreen from '@/features/coupons/screens/CouponsScreen';
+import AddMenuItemScreen from '@/features/menu/screens/AddMenuItemScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -31,6 +34,9 @@ export default function AppNavigator() {
                         <Stack.Screen name="main" component={TabNavigator} />
                         <Stack.Screen name="menu" component={MenuScreen} />
                         <Stack.Screen name="cart" component={CartScreen} />
+                        <Stack.Screen name="owner" component={OwnerTabNavigator} />
+                        <Stack.Screen name="coupons" component={CouponsScreen} />
+                        <Stack.Screen name="addMenuItem" component={AddMenuItemScreen}/>
                     </Stack.Navigator>
                 </NavigationContainer>
             </AlertProvider>

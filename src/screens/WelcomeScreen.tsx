@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Colors, Radius, Shadow } from '../theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '@/types/RootStackParamList';
 
 const { width, height } = Dimensions.get('window');
 

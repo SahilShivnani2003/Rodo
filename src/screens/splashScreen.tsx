@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, StatusBar, Easing, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList } from '@/types/RootStackParamList';
+import { useAuthStore } from '@/store/useAuthStore';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const Colors = {
@@ -27,6 +28,7 @@ const easeInOut = Easing.inOut(Easing.cubic);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SplashScreen({ navigation }: splashProps) {
+    const { loadAuth } = useAuthStore();
     // — values
     const masterOpacity = useRef(new Animated.Value(1)).current;
 
@@ -65,6 +67,26 @@ export default function SplashScreen({ navigation }: splashProps) {
     const haloScale2 = useRef(new Animated.Value(1)).current;
     const haloOpacity2 = useRef(new Animated.Value(0.18)).current;
 
+    const handleNavigation = async () => {
+        await loadAuth();
+
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        const user = useAuthStore.getState().user;
+
+        if (isAuthenticated) {
+            if (user?.role === 'customer') {
+                navigation.replace('main', {
+                    screen: 'home',
+                });
+            } else {
+                navigation.replace('owner', {
+                    screen: 'dashboard',
+                });
+            }
+        } else {
+            navigation.replace('welcome');
+        }
+    };
     useEffect(() => {
         // ── ambient halo loops ────────────────────────────────────────────────
         Animated.loop(
@@ -263,7 +285,7 @@ export default function SplashScreen({ navigation }: splashProps) {
                 easing: Easing.in(Easing.cubic),
                 useNativeDriver: true,
             }),
-        ]).start(() => navigation.replace('welcome'));
+        ]).start(()=> handleNavigation);
     }, []);
 
     const loaderFillWidth = loaderProgress.interpolate({
