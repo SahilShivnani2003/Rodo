@@ -32,7 +32,7 @@ export default function OTPScreen({ navigation, route }: otpProps) {
     const phone = route?.params?.phone || '98765 43210';
     const DEV_OTP = route?.params?.otp;
     const { setAuth } = useAuthStore();
-    const { mutate: verifyOtp  } = useValidateOtp();
+    const { mutate: verifyOtp } = useValidateOtp();
     const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
     const [timer, setTimer] = useState(30);
     const [canResend, setCanResend] = useState(false);
@@ -87,25 +87,23 @@ export default function OTPScreen({ navigation, route }: otpProps) {
             Animated.timing(buttonScale, { toValue: 1, duration: 80, useNativeDriver: true }),
         ]).start();
 
-         setLoading(true);
+        setLoading(true);
 
-         verifyOtp(
+        verifyOtp(
             {
                 phone: phone,
-                otp: DEV_OTP
+                otp: DEV_OTP,
             },
             {
-                onSuccess: (data)=>{
+                onSuccess: data => {
                     setAuth(data?.data?.user, data?.data?.token);
                     navigation.navigate('loginSuccess');
                 },
-                onError:(error:ApiError) =>{
-                    alert.error( error?.message || 'Validation failed')
-
-
-                }
-            }
-         )
+                onError: (error: ApiError) => {
+                    alert.error(error?.message || 'Validation failed');
+                },
+            },
+        );
     };
 
     const handleResend = () => {
@@ -140,37 +138,35 @@ export default function OTPScreen({ navigation, route }: otpProps) {
 
             <View style={styles.content}>
                 {/* ── Dev OTP Banner ── */}
-                {DEV_MODE && (
-                    <View style={styles.devBanner}>
-                        <View style={styles.devBannerLeft}>
-                            <Text style={styles.devBannerIcon}>🛠</Text>
-                            <Text style={styles.devBannerLabel}>Dev OTP</Text>
-                            {devVisible ? (
-                                <Text style={styles.devBannerOtp}>{DEV_OTP}</Text>
-                            ) : (
-                                <Text style={styles.devBannerHidden}>••••••</Text>
-                            )}
-                        </View>
-                        <View style={styles.devBannerActions}>
-                            <TouchableOpacity
-                                style={styles.devActionBtn}
-                                onPress={() => setDevVisible(v => !v)}
-                            >
-                                <Text style={styles.devActionText}>
-                                    {devVisible ? '🙈 Hide' : '👁 Show'}
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.devActionBtn, styles.devActionFill]}
-                                onPress={fillDevOtp}
-                            >
-                                <Text style={[styles.devActionText, styles.devActionFillText]}>
-                                    ⚡ Fill
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                <View style={styles.devBanner}>
+                    <View style={styles.devBannerLeft}>
+                        <Text style={styles.devBannerIcon}>🛠</Text>
+                        <Text style={styles.devBannerLabel}>Dev OTP</Text>
+                        {devVisible ? (
+                            <Text style={styles.devBannerOtp}>{DEV_OTP}</Text>
+                        ) : (
+                            <Text style={styles.devBannerHidden}>••••••</Text>
+                        )}
                     </View>
-                )}
+                    <View style={styles.devBannerActions}>
+                        <TouchableOpacity
+                            style={styles.devActionBtn}
+                            onPress={() => setDevVisible(v => !v)}
+                        >
+                            <Text style={styles.devActionText}>
+                                {devVisible ? '🙈 Hide' : '👁 Show'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.devActionBtn, styles.devActionFill]}
+                            onPress={fillDevOtp}
+                        >
+                            <Text style={[styles.devActionText, styles.devActionFillText]}>
+                                ⚡ Fill
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
                 {/* Icon */}
                 <View style={styles.iconWrap}>

@@ -104,8 +104,7 @@ export default function LoginScreen({ navigation }: loginProps) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* ── Dev Panel ── */}
-                {DEV_MODE && (
-                    <View style={styles.devPanel}>
+                <View style={styles.devPanel}>
                         <TouchableOpacity
                             style={styles.devHeader}
                             onPress={() => setDevOpen(o => !o)}
@@ -156,7 +155,6 @@ export default function LoginScreen({ navigation }: loginProps) {
                             </View>
                         )}
                     </View>
-                )}
 
                 {/* Top illustration */}
                 <View style={styles.heroWrap}>
