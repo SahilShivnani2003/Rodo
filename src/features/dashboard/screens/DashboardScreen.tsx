@@ -11,16 +11,20 @@ import {
     Dimensions,
     Platform,
     Animated,
+    ActivityIndicator,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import { MainTabParamList } from '@/types/MainTabParamList';
+import { useRestaurants } from '../hooks/useRestaurant';
+import { useRoutes } from '../hooks/useRoutes';
+import { Restaurant } from '@/features/restaurant/types/Restaurant';
 
 const { width } = Dimensions.get('window');
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Static Data ──────────────────────────────────────────────────────────────
 
 const OFFERS = [
     { id: '1', label: '10% Off',   sub: 'on all pre-orders',  emoji: '🎉', color: Colors.brandRed,    bg: 'rgba(214,26,26,0.12)' },
@@ -52,52 +56,25 @@ const QUICK_BITES = [
     { id: '4', name: 'Masala Chai',   price: '₹30',  emoji: '☕', rating: 4.9 },
 ];
 
-const POPULAR_RESTAURANTS = [
-    {
-        id: '1',
-        name: 'Shree Dhaba',
-        distance: '32 km',
-        eta: '~28 min',
-        rating: 4.6,
-        tags: ['Thali', 'Chai'],
-        isVeg: true,
-        isAhead: true,
-        priceForTwo: '₹180',
-        cuisine: 'North Indian · Thali',
-    },
-    {
-        id: '2',
-        name: 'Highway King',
-        distance: '58 km',
-        eta: '~48 min',
-        rating: 4.3,
-        tags: ['Snacks', 'Rolls'],
-        isVeg: false,
-        isAhead: true,
-        priceForTwo: '₹240',
-        cuisine: 'Non-Veg · Snacks',
-    },
-    {
-        id: '3',
-        name: 'Punjabi Tadka',
-        distance: '14 km',
-        eta: '~12 min',
-        rating: 4.8,
-        tags: ['Dal', 'Roti'],
-        isVeg: true,
-        isAhead: false,
-        priceForTwo: '₹150',
-        cuisine: 'Punjabi · Veg',
-    },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Derive a human-readable cuisine string from the Restaurant object */
+const getCuisine = (r: Restaurant): string => {
+    const parts: string[] = [];
+    if (r.cuisines?.length) parts.push(r.cuisines.slice(0, 2).join(' · '));
+    if (r.foodType === 'veg')     parts.push('Veg');
+    if (r.foodType === 'non-veg') parts.push('Non-Veg');
+    return parts.join(' · ') || 'Multi-cuisine';
+};
+
+/** Rough ETA string from avg prep time */
+const getEta = (r: Restaurant): string =>
+    r.avgPrepTimeMinutes ? `~${r.avgPrepTimeMinutes} min` : 'N/A';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type homeProps = NativeStackScreenProps<MainTabParamList, 'home'>;
 
-// ─── Pressable card with scale feedback ───────────────────────────────────────
-// onPress is passed directly to TouchableOpacity so React Native's scroll
-// gesture recogniser can cancel it properly — never put navigation inside
-// onPressOut, which fires unconditionally even when the user is scrolling.
+// ─── PressCard ────────────────────────────────────────────────────────────────
 function PressCard({
     onPress,
     style,
@@ -121,8 +98,8 @@ function PressCard({
         <Animated.View style={[{ transform: [{ scale }] }, style]}>
             <TouchableOpacity
                 activeOpacity={0.95}
-                onPress={onPress}          // ← RN suppresses this during scroll
-                onPressIn={handlePressIn}  // ← only scale, never navigate
+                onPress={onPress}
+                onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
                 style={{ flex: 1 }}
             >
@@ -134,12 +111,22 @@ function PressCard({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }: homeProps) {
-    const [from, setFrom] = useState('Bhopal');
-    const [to, setTo] = useState('Indore');
+    // ── Data fetching ──────────────────────────────────────────────────────────
+    const { data: routesData, isLoading: routesLoading } = useRoutes();
+    const routes = routesData?.data?.routes ?? [];
+    const firstRouteId = routes[0]?._id ?? '';
+
+    const { data: restaurantsData, isLoading: restaurantsLoading } =
+        useRestaurants(firstRouteId);
+    const restaurants: Restaurant[] = restaurantsData?.data?.restaurants ?? [];
+
+    // ── Local state ────────────────────────────────────────────────────────────
+    const [from, setFrom]               = useState('Bhopal');
+    const [to, setTo]                   = useState('Indore');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTime, setSelectedTime] = useState('immediately');
     const [activeFilter, setActiveFilter] = useState('All');
-    const [activeCat, setActiveCat] = useState('1');
+    const [activeCat, setActiveCat]     = useState('1');
     const searchFocused = useRef(new Animated.Value(0)).current;
 
     const handleSwap = () => { const t = from; setFrom(to); setTo(t); };
@@ -149,103 +136,149 @@ export default function DashboardScreen({ navigation }: homeProps) {
     const blurSearch = () =>
         Animated.spring(searchFocused, { toValue: 0, useNativeDriver: false, tension: 120, friction: 8 }).start();
 
-    const searchBorder = searchFocused.interpolate({ inputRange: [0, 1], outputRange: [Colors.border, Colors.borderActive] });
+    const searchBorder = searchFocused.interpolate({
+        inputRange: [0, 1],
+        outputRange: [Colors.border, Colors.borderActive],
+    });
 
-    // ── Restaurant Card ────────────────────────────────────────────
-    const RestaurantCard = ({ r }: { r: (typeof POPULAR_RESTAURANTS)[0] }) => (
-        <PressCard
-            onPress={() =>
-                r.isAhead &&
-                navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().navigate('menu')
-            }
-            disabled={!r.isAhead}
-            style={[styles.restCard, !r.isAhead && styles.restCardDimmed]}
-        >
-            {/* Image section */}
-            <View style={styles.restImageArea}>
-                <View style={[styles.restImageBg, !r.isAhead && { backgroundColor: Colors.passed }]}>
-                    {/* Decorative diagonal stripe */}
-                    <View style={styles.restImageStripe} />
-                    <Text style={{ fontSize: 52 }}>🍽️</Text>
-                </View>
+    // ── Filter logic ───────────────────────────────────────────────────────────
+    const filteredRestaurants = restaurants.filter(r => {
+        if (activeFilter === 'Veg')       return r.foodType === 'veg';
+        if (activeFilter === 'Non-Veg')   return r.foodType === 'non-veg';
+        if (activeFilter === 'Open Now')  return r.isOpen;
+        if (activeFilter === 'Top Rated') return r.rating >= 4.5;
+        return true; // 'All'
+    });
 
-                {/* Veg indicator */}
-                <View style={[styles.vegIndicator, { borderColor: r.isVeg ? Colors.vegGreen : Colors.redPin }]}>
-                    <View style={[styles.vegDot, { backgroundColor: r.isVeg ? Colors.vegGreen : Colors.redPin }]} />
-                </View>
+    // ── Search filter on top ───────────────────────────────────────────────────
+    const displayedRestaurants = searchQuery.trim()
+        ? filteredRestaurants.filter(r =>
+              r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              r.cuisines?.some(c => c.toLowerCase().includes(searchQuery.toLowerCase())),
+          )
+        : filteredRestaurants;
 
-                {/* Rating pill */}
-                <View style={styles.ratingBadge}>
-                    <Text style={styles.ratingBadgeStar}>★</Text>
-                    <Text style={styles.ratingBadgeText}>{r.rating}</Text>
-                </View>
+    // ── Restaurant Card ────────────────────────────────────────────────────────
+    const RestaurantCard = ({ r }: { r: Restaurant }) => {
+        const id      = r._id ?? '';
+        const isVeg   = r.foodType === 'veg';
+        // A restaurant is "ahead" (orderable) if it's open and active
+        const isAhead = r.isOpen && r.isActive;
 
-                {/* ETA badge */}
-                {r.isAhead && (
-                    <View style={styles.etaBadge}>
-                        <Text style={styles.etaBadgeText}>⏱ {r.eta}</Text>
+        return (
+            <PressCard
+                onPress={() =>
+                    isAhead && id &&
+                    navigation
+                        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                        .navigate('menu', { restaurantId: id })
+                }
+                disabled={!isAhead || !id}
+                style={[styles.restCard, !isAhead && styles.restCardDimmed]}
+            >
+                {/* Image section */}
+                <View style={styles.restImageArea}>
+                    <View style={[styles.restImageBg, !isAhead && { backgroundColor: Colors.passed }]}>
+                        <View style={styles.restImageStripe} />
+                        {r.coverImage ? (
+                            <Image
+                                source={{ uri: r.coverImage }}
+                                style={StyleSheet.absoluteFillObject}
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <Text style={{ fontSize: 52 }}>🍽️</Text>
+                        )}
                     </View>
-                )}
 
-                {!r.isAhead && (
-                    <View style={styles.passedBanner}>
-                        <View style={styles.passedBannerInner}>
-                            <Text style={styles.passedBannerText}>Already Passed</Text>
+                    {/* Veg indicator */}
+                    <View style={[styles.vegIndicator, { borderColor: isVeg ? Colors.vegGreen : Colors.redPin }]}>
+                        <View style={[styles.vegDot, { backgroundColor: isVeg ? Colors.vegGreen : Colors.redPin }]} />
+                    </View>
+
+                    {/* Rating pill */}
+                    <View style={styles.ratingBadge}>
+                        <Text style={styles.ratingBadgeStar}>★</Text>
+                        <Text style={styles.ratingBadgeText}>{r.rating.toFixed(1)}</Text>
+                    </View>
+
+                    {/* ETA badge */}
+                    {isAhead && (
+                        <View style={styles.etaBadge}>
+                            <Text style={styles.etaBadgeText}>⏱ {getEta(r)}</Text>
                         </View>
-                    </View>
-                )}
-            </View>
+                    )}
 
-            {/* Content */}
-            <View style={styles.restContent}>
-                {/* Name row */}
-                <View style={styles.restTopRow}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.restName} numberOfLines={1}>{r.name}</Text>
-                        <Text style={styles.restCuisine}>{r.cuisine}</Text>
-                    </View>
-                    <View style={styles.priceBadge}>
-                        <Text style={styles.priceText}>{r.priceForTwo}</Text>
-                        <Text style={styles.priceFor}> for 2</Text>
-                    </View>
-                </View>
-
-                {/* Divider */}
-                <View style={styles.restDivider} />
-
-                {/* Meta + CTA row */}
-                <View style={styles.restBottomRow}>
-                    <View style={styles.metaGroup}>
-                        <View style={styles.metaPill}>
-                            <Text style={styles.metaIcon}>📍</Text>
-                            <Text style={styles.metaPillText}>{r.distance}</Text>
+                    {/* Verified badge */}
+                    {r.isVerified && (
+                        <View style={styles.verifiedBadge}>
+                            <Text style={styles.verifiedBadgeText}>✓ Verified</Text>
                         </View>
-                        <View style={styles.metaDot} />
-                        {r.tags.map(t => (
-                            <View key={t} style={styles.tagChip}>
-                                <Text style={styles.tagChipText}>{t}</Text>
+                    )}
+
+                    {!isAhead && (
+                        <View style={styles.passedBanner}>
+                            <View style={styles.passedBannerInner}>
+                                <Text style={styles.passedBannerText}>
+                                    {!r.isOpen ? 'Currently Closed' : 'Unavailable'}
+                                </Text>
                             </View>
-                        ))}
-                    </View>
-
-                    {r.isAhead && (
-                        <TouchableOpacity
-                            style={styles.menuCta}
-                            activeOpacity={0.85}
-                            onPress={() =>
-                                navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().navigate('menu')
-                            }
-                        >
-                            <Text style={styles.menuCtaText}>Menu</Text>
-                            <Text style={styles.menuCtaArrow}>→</Text>
-                        </TouchableOpacity>
+                        </View>
                     )}
                 </View>
-            </View>
-        </PressCard>
-    );
 
-    // ── Render ─────────────────────────────────────────────────────
+                {/* Content */}
+                <View style={styles.restContent}>
+                    <View style={styles.restTopRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.restName} numberOfLines={1}>{r.name}</Text>
+                            <Text style={styles.restCuisine}>{getCuisine(r)}</Text>
+                        </View>
+                        <View style={styles.priceBadge}>
+                            <Text style={styles.priceText}>{r.totalRatings}</Text>
+                            <Text style={styles.priceFor}> ratings</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.restDivider} />
+
+                    <View style={styles.restBottomRow}>
+                        <View style={styles.metaGroup}>
+                            <View style={styles.metaPill}>
+                                <Text style={styles.metaIcon}>📍</Text>
+                                <Text style={styles.metaPillText}>{r.address.city}</Text>
+                            </View>
+                            <View style={styles.metaDot} />
+                            {r.cuisines?.slice(0, 2).map(tag => (
+                                <View key={tag} style={styles.tagChip}>
+                                    <Text style={styles.tagChipText}>{tag}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {isAhead && id && (
+                            <TouchableOpacity
+                                style={styles.menuCta}
+                                activeOpacity={0.85}
+                                onPress={() =>
+                                    navigation
+                                        .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                                        .navigate('menu', { restaurantId: id })
+                                }
+                            >
+                                <Text style={styles.menuCtaText}>Menu</Text>
+                                <Text style={styles.menuCtaArrow}>→</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </PressCard>
+        );
+    };
+
+    const isLoading = routesLoading || restaurantsLoading;
+
+    // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
             <StatusBar barStyle="light-content" backgroundColor={Colors.brandRed} />
@@ -254,14 +287,11 @@ export default function DashboardScreen({ navigation }: homeProps) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
             >
-
                 {/* ══ HERO ══════════════════════════════════════════════════════ */}
                 <View style={styles.hero}>
-                    {/* Layered decorative shapes */}
                     <View style={styles.heroShape1} />
                     <View style={styles.heroShape2} />
                     <View style={styles.heroShape3} />
-                    {/* Diagonal slash accent */}
                     <View style={styles.heroDiag} />
 
                     {/* Top nav */}
@@ -289,27 +319,26 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Greeting block */}
+                    {/* Greeting */}
                     <View style={styles.heroGreetingBlock}>
                         <Text style={styles.heroGreeting}>Hey Rahul! 👋</Text>
                         <Text style={styles.heroSub}>
-                           Pre-order highway food so it's ready{'\n'}When you arrive. No waiting, just eating!
+                            Pre-order highway food so it's ready{'\n'}When you arrive. No waiting, just eating!
                         </Text>
-                    </View>                    
+                    </View>
 
-                    <View>
-                        <View>
-                            <Icon name='circle-samll' size={18} />
-                            <Text>Select Route</Text>
-                        </View>
-                        <View>
-                            <Icon name='circle-samll' size={18} />
-                            <Text>Order Food Ahead</Text>
-                        </View>
-                        <View>
-                            <Icon name='circle-samll' size={18} />
-                            <Text>Enjoy Hot & Fresh Food</Text>
-                        </View>
+                    {/* How it works */}
+                    <View style={styles.howItWorks}>
+                        {[
+                            { icon: 'circle-small', label: 'Select Route'          },
+                            { icon: 'circle-small', label: 'Order Food Ahead'      },
+                            { icon: 'circle-small', label: 'Enjoy Hot & Fresh Food'},
+                        ].map(step => (
+                            <View key={step.label} style={styles.howItWorksRow}>
+                                <Icon name={step.icon} size={18} color="rgba(255,255,255,0.8)" />
+                                <Text style={styles.howItWorksText}>{step.label}</Text>
+                            </View>
+                        ))}
                     </View>
 
                     {/* CTA row */}
@@ -325,7 +354,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     </View>
                 </View>
 
-                {/* ══ SEARCH (floating, overlapping hero) ══════════════════════ */}
+                {/* ══ SEARCH ════════════════════════════════════════════════════ */}
                 <View style={styles.searchOuter}>
                     <Animated.View style={[styles.searchInner, { borderColor: searchBorder }]}>
                         <Text style={styles.searchIcon}>🔍</Text>
@@ -359,7 +388,6 @@ export default function DashboardScreen({ navigation }: homeProps) {
 
                     {/* ── TRIP PLANNER ──────────────────────────────────────── */}
                     <View style={styles.plannerCard}>
-                        {/* Header */}
                         <View style={styles.plannerHeader}>
                             <View style={styles.plannerLabelRow}>
                                 <View style={styles.plannerLabelAccent} />
@@ -375,7 +403,6 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Route inputs */}
                         <View style={styles.routeBox}>
                             {/* FROM */}
                             <View style={styles.routeRow}>
@@ -412,7 +439,6 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             </View>
                         </View>
 
-                        {/* Find button */}
                         <TouchableOpacity
                             style={styles.findBtn}
                             onPress={() => navigation.navigate('restaurants')}
@@ -485,7 +511,6 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         >
                             {OFFERS.map(o => (
                                 <TouchableOpacity key={o.id} style={styles.offerCard} activeOpacity={0.85}>
-                                    {/* Top accent strip */}
                                     <View style={[styles.offerStrip, { backgroundColor: o.color }]} />
                                     <View style={[styles.offerIconBox, { backgroundColor: o.bg }]}>
                                         <Text style={{ fontSize: 28 }}>{o.emoji}</Text>
@@ -559,7 +584,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         </ScrollView>
                     </View>
 
-                    {/* ── RESTAURANTS ON ROUTE ─────────────────────────────── */}
+                    {/* ── RESTAURANTS ON ROUTE ──────────────────────────────── */}
                     <View style={styles.sectionHeaderRow}>
                         <Text style={styles.sectionTitle}>On Your Route</Text>
                         <TouchableOpacity onPress={() => navigation.navigate('restaurants')} activeOpacity={0.7}>
@@ -567,9 +592,27 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         </TouchableOpacity>
                     </View>
 
-                    {POPULAR_RESTAURANTS.map(r => (
-                        <RestaurantCard key={r.id} r={r} />
-                    ))}
+                    {isLoading ? (
+                        <ActivityIndicator
+                            color={Colors.brandRed}
+                            size="large"
+                            style={{ marginTop: 24 }}
+                        />
+                    ) : displayedRestaurants.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyStateEmoji}>🍽️</Text>
+                            <Text style={styles.emptyStateTitle}>No restaurants found</Text>
+                            <Text style={styles.emptyStateDesc}>
+                                {searchQuery
+                                    ? 'Try a different search term'
+                                    : 'No restaurants available on this route'}
+                            </Text>
+                        </View>
+                    ) : (
+                        displayedRestaurants.map(r => (
+                            <RestaurantCard key={r._id ?? r.name} r={r} />
+                        ))
+                    )}
                 </View>
             </ScrollView>
         </View>
@@ -578,943 +621,308 @@ export default function DashboardScreen({ navigation }: homeProps) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: Colors.bg,
-    },
+    root: { flex: 1, backgroundColor: Colors.bg },
 
-    // ── HERO ──────────────────────────────────────────────────────
+    // ── HERO ──────────────────────────────────────────────────────────────────
     hero: {
         backgroundColor: Colors.brandRed,
         paddingTop: Platform.OS === 'android' ? 40 : 64,
         paddingHorizontal: 22,
-        paddingBottom: 52, // extra so search card overlaps cleanly
+        paddingBottom: 52,
         overflow: 'hidden',
         position: 'relative',
     },
     heroShape1: {
-        position: 'absolute',
-        width: 280,
-        height: 280,
-        borderRadius: 140,
-        backgroundColor: 'rgba(255,211,0,0.18)',
-        top: -90,
-        right: -60,
+        position: 'absolute', width: 280, height: 280, borderRadius: 140,
+        backgroundColor: 'rgba(255,211,0,0.18)', top: -90, right: -60,
     },
     heroShape2: {
-        position: 'absolute',
-        width: 180,
-        height: 180,
-        borderRadius: 90,
-        backgroundColor: 'rgba(255,211,0,0.12)',
-        bottom: -40,
-        left: -50,
+        position: 'absolute', width: 180, height: 180, borderRadius: 90,
+        backgroundColor: 'rgba(255,211,0,0.12)', bottom: -40, left: -50,
     },
     heroShape3: {
-        position: 'absolute',
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: 'rgba(0,0,0,0.06)',
-        top: 60,
-        right: 160,
+        position: 'absolute', width: 100, height: 100, borderRadius: 50,
+        backgroundColor: 'rgba(0,0,0,0.06)', top: 60, right: 160,
     },
     heroDiag: {
-        position: 'absolute',
-        width: 200,
-        height: 3,
-        backgroundColor: 'rgba(255,255,255,0.10)',
-        bottom: 70,
-        right: -30,
+        position: 'absolute', width: 200, height: 3,
+        backgroundColor: 'rgba(255,255,255,0.10)', bottom: 70, right: -30,
         transform: [{ rotate: '-18deg' }],
     },
-
-    // Nav
     heroNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 28,
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 28,
     },
-    heroNavLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
+    heroNavLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     heroLogoWrap: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        overflow: 'hidden',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.38)',
-        ...Shadow.amber,
+        width: 48, height: 48, borderRadius: 14, overflow: 'hidden',
+        borderWidth: 2, borderColor: 'rgba(255,255,255,0.38)', ...Shadow.amber,
     },
-    heroLogo: {
-        width: '100%',
-        height: '100%',
-    },
+    heroLogo: { width: '100%', height: '100%' },
     heroLogoShine: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '45%',
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: '45%', backgroundColor: 'rgba(255,255,255,0.12)',
     },
     heroAppName: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 22,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -0.8,
+        fontSize: 22, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.8,
     },
-    heroLocRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        marginTop: 2,
-    },
-    heroLocDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.65)',
-    },
-    heroLocText: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.72)',
-        fontWeight: '600',
-        letterSpacing: 0.3,
-    },
+    heroLocRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    heroLocDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.65)' },
+    heroLocText: { fontSize: 11, color: 'rgba(255,255,255,0.72)', fontWeight: '600', letterSpacing: 0.3 },
     heroNotif: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.30)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 48, height: 48, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.30)', alignItems: 'center', justifyContent: 'center',
     },
     notifDot: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        width: 9,
-        height: 9,
-        borderRadius: 5,
-        backgroundColor: Colors.redPin,
-        borderWidth: 2,
-        borderColor: Colors.amber,
+        position: 'absolute', top: 10, right: 10, width: 9, height: 9,
+        borderRadius: 5, backgroundColor: Colors.redPin, borderWidth: 2, borderColor: Colors.amber,
     },
+    heroGreetingBlock: { marginBottom: 20 },
+    heroGreeting: { fontSize: 38, fontWeight: '900', color: '#FFFFFF', letterSpacing: -1.5, lineHeight: 44 },
+    heroSub: { fontSize: 14.5, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginTop: 8, lineHeight: 21 },
 
-    // Greeting
-    heroGreetingBlock: {
-        marginBottom: 24,
-    },
-    heroGreeting: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 38,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -1.5,
-        lineHeight: 44,
-    },
-    heroSub: {
-        fontFamily: 'DM Sans',
-        fontSize: 14.5,
-        color: 'rgba(255,255,255,0.75)',
-        fontWeight: '500',
-        marginTop: 8,
-        lineHeight: 21,
-    },
+    // How it works
+    howItWorks: { marginBottom: 20, gap: 6 },
+    howItWorksRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    howItWorksText: { fontSize: 13, color: 'rgba(255,255,255,0.80)', fontWeight: '600' },
 
-    // Stats strip
-    heroStats: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.12)',
-        borderRadius: 20,
-        paddingVertical: 14,
-        paddingHorizontal: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
-        marginBottom: 18,
-    },
-    heroStat: {
-        flex: 1,
-        alignItems: 'center',
-        gap: 3,
-    },
-    heroStatIcon: {
-        fontSize: 16,
-        marginBottom: 2,
-    },
-    heroStatValue: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 19,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -0.5,
-    },
-    heroStatLabel: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        color: 'rgba(255,255,255,0.62)',
-        fontWeight: '600',
-        letterSpacing: 0.2,
-    },
-    heroStatDivider: {
-        width: 1,
-        height: 32,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        alignSelf: 'center',
-    },
-
-    // CTA row
-    heroCtaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
+    heroCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     heroCta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 14,
-        paddingVertical: 12,
-        paddingHorizontal: 18,
-        ...Shadow.card,
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        backgroundColor: '#FFFFFF', borderRadius: 14,
+        paddingVertical: 12, paddingHorizontal: 18, ...Shadow.card,
     },
-    heroCtaText: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 14,
-        fontWeight: '900',
-        color: Colors.amber,
-        letterSpacing: -0.3,
-    },
-    heroCtaArrow: {
-        fontSize: 15,
-        color: Colors.amber,
-        fontWeight: '900',
-    },
-    heroLiveChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.28)',
-    },
-    heroLiveDot: {
-        width: 7,
-        height: 7,
-        borderRadius: 4,
-        backgroundColor: '#4ADE80',
-    },
-    heroLiveText: {
-        fontFamily: 'DM Sans',
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.85)',
-        fontWeight: '700',
-    },
+    heroCtaText: { fontSize: 14, fontWeight: '900', color: Colors.amber, letterSpacing: -0.3 },
+    heroCtaArrow: { fontSize: 15, color: Colors.amber, fontWeight: '900' },
 
-    // ── SEARCH ────────────────────────────────────────────────────
-    searchOuter: {
-        paddingHorizontal: 18,
-        marginTop: -26,
-        marginBottom: 22,
-        zIndex: 10,
-    },
+    // ── SEARCH ────────────────────────────────────────────────────────────────
+    searchOuter: { paddingHorizontal: 18, marginTop: -26, marginBottom: 22, zIndex: 10 },
     searchInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.bgCard,
-        borderRadius: Radius.lg,
-        paddingHorizontal: 16,
-        height: 54,
-        borderWidth: 1.5,
-        gap: 10,
-        ...Shadow.card,
+        flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bgCard,
+        borderRadius: Radius.lg, paddingHorizontal: 16, height: 54, borderWidth: 1.5, gap: 10, ...Shadow.card,
     },
-    searchIcon: {
-        fontSize: 16,
-    },
-    searchInput: {
-        flex: 1,
-        fontFamily: 'DM Sans',
-        fontSize: 14,
-        color: Colors.textPrimary,
-        fontWeight: '600',
-        padding: 0,
-    },
+    searchIcon: { fontSize: 16 },
+    searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary, fontWeight: '600', padding: 0 },
     searchClearBtn: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: Colors.bgElevated,
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center',
     },
-    searchClearText: {
-        fontSize: 12,
-        color: Colors.textMuted,
-        fontWeight: '700',
-    },
+    searchClearText: { fontSize: 12, color: Colors.textMuted, fontWeight: '700' },
     searchKbd: {
-        backgroundColor: Colors.bgElevated,
-        borderRadius: 7,
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderWidth: 1,
-        borderColor: Colors.border,
+        backgroundColor: Colors.bgElevated, borderRadius: 7,
+        paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: Colors.border,
     },
-    searchKbdText: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        color: Colors.textMuted,
-        fontWeight: '700',
-    },
+    searchKbdText: { fontSize: 10, color: Colors.textMuted, fontWeight: '700' },
 
-    // ── BODY ──────────────────────────────────────────────────────
-    body: {
-        paddingHorizontal: 20,
-    },
-    section: {
-        marginBottom: 30,
-    },
-    sectionTitle: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 18,
-        fontWeight: '900',
-        color: Colors.textPrimary,
-        letterSpacing: -0.6,
-    },
+    // ── BODY ──────────────────────────────────────────────────────────────────
+    body: { paddingHorizontal: 20 },
+    section: { marginBottom: 30 },
+    sectionTitle: { fontSize: 18, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -0.6 },
     sectionHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 16,
     },
-    seeAllText: {
-        fontFamily: 'DM Sans',
-        fontSize: 13,
-        color: Colors.amber,
-        fontWeight: '800',
-    },
+    seeAllText: { fontSize: 13, color: Colors.amber, fontWeight: '800' },
 
-    // ── TRIP PLANNER ──────────────────────────────────────────────
+    // ── TRIP PLANNER ──────────────────────────────────────────────────────────
     plannerCard: {
-        backgroundColor: Colors.bgCard,
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 30,
-        borderWidth: 1.5,
-        borderColor: Colors.borderActive,
-        ...Shadow.card,
+        backgroundColor: Colors.bgCard, borderRadius: 24, padding: 20, marginBottom: 30,
+        borderWidth: 1.5, borderColor: Colors.borderActive, ...Shadow.card,
     },
     plannerHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 18,
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 18,
     },
-    plannerLabelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    plannerLabelAccent: {
-        width: 4,
-        height: 18,
-        borderRadius: 2,
-        backgroundColor: Colors.amber,
-    },
-    plannerLabel: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 14,
-        fontWeight: '900',
-        color: Colors.textPrimary,
-        letterSpacing: -0.3,
-    },
+    plannerLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    plannerLabelAccent: { width: 4, height: 18, borderRadius: 2, backgroundColor: Colors.amber },
+    plannerLabel: { fontSize: 14, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -0.3 },
     plannerSwapBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        backgroundColor: Colors.amberGlow,
-        paddingHorizontal: 13,
-        paddingVertical: 8,
-        borderRadius: Radius.full,
-        borderWidth: 1,
-        borderColor: Colors.borderActive,
+        flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.amberGlow,
+        paddingHorizontal: 13, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.borderActive,
     },
-    plannerSwapIcon: {
-        fontSize: 14,
-        color: Colors.amber,
-        fontWeight: '900',
-    },
-    plannerSwapText: {
-        fontFamily: 'DM Sans',
-        fontSize: 12,
-        color: Colors.amber,
-        fontWeight: '800',
-    },
+    plannerSwapIcon: { fontSize: 14, color: Colors.amber, fontWeight: '900' },
+    plannerSwapText: { fontSize: 12, color: Colors.amber, fontWeight: '800' },
     routeBox: {
-        backgroundColor: Colors.bgInput,
-        borderRadius: 16,
-        paddingHorizontal: 14,
-        paddingTop: 4,
-        paddingBottom: 4,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        overflow: 'hidden',
+        backgroundColor: Colors.bgInput, borderRadius: 16, paddingHorizontal: 14,
+        paddingTop: 4, paddingBottom: 4, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
     },
-    routeRow: {
-        flexDirection: 'row',
-        alignItems: 'stretch',
-        gap: 14,
-    },
-    routeIndicator: {
-        alignItems: 'center',
-        paddingTop: 22,
-        width: 14,
-    },
-    routeDot: {
-        width: 13,
-        height: 13,
-        borderRadius: 7,
-        borderWidth: 2.5,
-        borderColor: Colors.bgCard,
-        flexShrink: 0,
-    },
+    routeRow: { flexDirection: 'row', alignItems: 'stretch', gap: 14 },
+    routeIndicator: { alignItems: 'center', paddingTop: 22, width: 14 },
+    routeDot: { width: 13, height: 13, borderRadius: 7, borderWidth: 2.5, borderColor: Colors.bgCard, flexShrink: 0 },
     routeLine: {
-        flex: 1,
-        width: 2,
-        backgroundColor: Colors.border,
-        marginTop: 5,
-        alignSelf: 'center',
-        minHeight: 20,
-        borderRadius: 1,
+        flex: 1, width: 2, backgroundColor: Colors.border,
+        marginTop: 5, alignSelf: 'center', minHeight: 20, borderRadius: 1,
     },
-    routeFieldWrap: {
-        flex: 1,
-        paddingVertical: 13,
-    },
+    routeFieldWrap: { flex: 1, paddingVertical: 13 },
     routeFieldLabel: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        fontWeight: '900',
-        color: Colors.textMuted,
-        letterSpacing: 1,
-        textTransform: 'uppercase',
-        marginBottom: 4,
+        fontSize: 10, fontWeight: '900', color: Colors.textMuted,
+        letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4,
     },
-    routeField: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 15,
-        fontWeight: '700',
-        color: Colors.textPrimary,
-        padding: 0,
-        letterSpacing: -0.3,
-    },
+    routeField: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, padding: 0, letterSpacing: -0.3 },
     findBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: Colors.amber,
-        borderRadius: 14,
-        paddingVertical: 14,
-        paddingLeft: 20,
-        paddingRight: 14,
-        ...Shadow.amber,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: Colors.amber, borderRadius: 14, paddingVertical: 14,
+        paddingLeft: 20, paddingRight: 14, ...Shadow.amber,
     },
-    findBtnText: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 15,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -0.3,
-    },
+    findBtnText: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.3 },
     findBtnArrowBox: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.22)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 32, height: 32, borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center',
     },
-    findBtnArrow: {
-        fontSize: 16,
-        color: '#FFFFFF',
-        fontWeight: '900',
-    },
+    findBtnArrow: { fontSize: 16, color: '#FFFFFF', fontWeight: '900' },
 
-    // ── DELIVERY TIME ─────────────────────────────────────────────
-    timeGrid: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 14,
-    },
+    // ── DELIVERY TIME ─────────────────────────────────────────────────────────
+    timeGrid: { flexDirection: 'row', gap: 10, marginTop: 14 },
     timeCard: {
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: Colors.bgCard,
-        borderRadius: 16,
-        paddingVertical: 14,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        gap: 5,
-        position: 'relative',
-        overflow: 'hidden',
-        ...Shadow.card,
+        flex: 1, alignItems: 'center', backgroundColor: Colors.bgCard,
+        borderRadius: 16, paddingVertical: 14, borderWidth: 1.5, borderColor: Colors.border,
+        gap: 5, position: 'relative', overflow: 'hidden', ...Shadow.card,
     },
-    timeCardActive: {
-        backgroundColor: Colors.amber,
-        borderColor: Colors.amber,
-        ...Shadow.amber,
-    },
+    timeCardActive: { backgroundColor: Colors.amber, borderColor: Colors.amber, ...Shadow.amber },
     timeCardEmoji: { fontSize: 20 },
-    timeCardText: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        fontWeight: '800',
-        color: Colors.textSecondary,
-        letterSpacing: 0.1,
-    },
-    timeCardTextActive: {
-        color: '#FFFFFF',
-        fontWeight: '900',
-    },
+    timeCardText: { fontSize: 11, fontWeight: '800', color: Colors.textSecondary, letterSpacing: 0.1 },
+    timeCardTextActive: { color: '#FFFFFF', fontWeight: '900' },
     timeCardActiveDot: {
-        position: 'absolute',
-        bottom: 5,
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.6)',
+        position: 'absolute', bottom: 5, width: 4, height: 4,
+        borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.6)',
     },
 
-    // ── FILTERS ───────────────────────────────────────────────────
-    filterRow: {
-        gap: 10,
-        paddingRight: 4,
-    },
+    // ── FILTERS ───────────────────────────────────────────────────────────────
+    filterRow: { gap: 10, paddingRight: 4 },
     filterChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 9,
-        borderRadius: Radius.full,
-        backgroundColor: Colors.bgCard,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        ...Shadow.card,
+        paddingHorizontal: 16, paddingVertical: 9, borderRadius: Radius.full,
+        backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.border, ...Shadow.card,
     },
-    filterChipActive: {
-        backgroundColor: Colors.amber,
-        borderColor: Colors.amber,
-        ...Shadow.amber,
-    },
-    filterChipText: {
-        fontFamily: 'DM Sans',
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.textSecondary,
-    },
-    filterChipTextActive: {
-        color: '#FFFFFF',
-        fontWeight: '900',
-    },
+    filterChipActive: { backgroundColor: Colors.amber, borderColor: Colors.amber, ...Shadow.amber },
+    filterChipText: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+    filterChipTextActive: { color: '#FFFFFF', fontWeight: '900' },
 
-    // ── OFFERS ────────────────────────────────────────────────────
+    // ── OFFERS ────────────────────────────────────────────────────────────────
     offerCard: {
-        backgroundColor: Colors.bgCard,
-        borderRadius: 20,
-        padding: 16,
-        paddingTop: 20,
-        width: 154,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        overflow: 'hidden',
-        ...Shadow.card,
+        backgroundColor: Colors.bgCard, borderRadius: 20, padding: 16, paddingTop: 20,
+        width: 154, borderWidth: 1.5, borderColor: Colors.border, overflow: 'hidden', ...Shadow.card,
     },
-    offerStrip: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 4,
-    },
-    offerIconBox: {
-        width: 52,
-        height: 52,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    offerTitle: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 17,
-        fontWeight: '900',
-        letterSpacing: -0.4,
-        marginBottom: 4,
-    },
-    offerDesc: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        color: Colors.textMuted,
-        fontWeight: '600',
-        lineHeight: 16,
-        marginBottom: 14,
-    },
-    offerCta: {
-        borderWidth: 1.5,
-        borderRadius: 10,
-        paddingVertical: 7,
-        alignItems: 'center',
-    },
-    offerCtaText: {
-        fontFamily: 'DM Sans',
-        fontSize: 12,
-        fontWeight: '800',
-    },
+    offerStrip: { position: 'absolute', top: 0, left: 0, right: 0, height: 4 },
+    offerIconBox: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    offerTitle: { fontSize: 17, fontWeight: '900', letterSpacing: -0.4, marginBottom: 4 },
+    offerDesc: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', lineHeight: 16, marginBottom: 14 },
+    offerCta: { borderWidth: 1.5, borderRadius: 10, paddingVertical: 7, alignItems: 'center' },
+    offerCtaText: { fontSize: 12, fontWeight: '800' },
 
-    // ── CATEGORIES ────────────────────────────────────────────────
+    // ── CATEGORIES ────────────────────────────────────────────────────────────
     catCard: {
-        alignItems: 'center',
-        backgroundColor: Colors.bgCard,
-        borderRadius: 18,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        minWidth: 84,
-        gap: 8,
-        ...Shadow.card,
+        alignItems: 'center', backgroundColor: Colors.bgCard, borderRadius: 18,
+        paddingHorizontal: 18, paddingVertical: 14, borderWidth: 1.5,
+        borderColor: Colors.border, minWidth: 84, gap: 8, ...Shadow.card,
     },
-    catCardActive: {
-        borderColor: Colors.amber,
-        backgroundColor: Colors.amberGlow,
-    },
-    catEmojiBox: {
-        width: 46,
-        height: 46,
-        borderRadius: 13,
-        backgroundColor: Colors.bgElevated,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    catEmojiBoxActive: {
-        backgroundColor: Colors.amber,
-    },
+    catCardActive: { borderColor: Colors.amber, backgroundColor: Colors.amberGlow },
+    catEmojiBox: { width: 46, height: 46, borderRadius: 13, backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center' },
+    catEmojiBoxActive: { backgroundColor: Colors.amber },
     catCardEmoji: { fontSize: 22 },
-    catCardLabel: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        fontWeight: '800',
-        color: Colors.textSecondary,
-    },
-    catCardLabelActive: {
-        color: Colors.amber,
-        fontWeight: '900',
-    },
+    catCardLabel: { fontSize: 11, fontWeight: '800', color: Colors.textSecondary },
+    catCardLabelActive: { color: Colors.amber, fontWeight: '900' },
 
-    // ── QUICK BITES ───────────────────────────────────────────────
+    // ── QUICK BITES ───────────────────────────────────────────────────────────
     biteCard: {
-        backgroundColor: Colors.bgCard,
-        borderRadius: 18,
-        padding: 14,
-        width: 126,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        gap: 8,
-        ...Shadow.card,
+        backgroundColor: Colors.bgCard, borderRadius: 18, padding: 14,
+        width: 126, borderWidth: 1.5, borderColor: Colors.border, gap: 8, ...Shadow.card,
     },
-    biteIconBox: {
-        width: 52,
-        height: 52,
-        borderRadius: 14,
-        backgroundColor: Colors.amberGlow,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    biteIconBox: { width: 52, height: 52, borderRadius: 14, backgroundColor: Colors.amberGlow, alignItems: 'center', justifyContent: 'center' },
     biteEmoji: { fontSize: 26 },
-    biteName: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 13,
-        fontWeight: '800',
-        color: Colors.textPrimary,
-        letterSpacing: -0.2,
-    },
-    biteFooter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    bitePrice: {
-        fontFamily: 'DM Sans',
-        fontSize: 13,
-        fontWeight: '800',
-        color: Colors.amber,
-    },
+    biteName: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.2 },
+    biteFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    bitePrice: { fontSize: 13, fontWeight: '800', color: Colors.amber },
     biteRating: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 2,
-        backgroundColor: Colors.bgElevated,
-        paddingHorizontal: 6,
-        paddingVertical: 3,
-        borderRadius: 7,
+        flexDirection: 'row', alignItems: 'center', gap: 2,
+        backgroundColor: Colors.bgElevated, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 7,
     },
-    biteRatingStar: {
-        fontSize: 9,
-        color: Colors.amber,
-    },
-    biteRatingText: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        fontWeight: '800',
-        color: Colors.textSecondary,
-    },
+    biteRatingStar: { fontSize: 9, color: Colors.amber },
+    biteRatingText: { fontSize: 10, fontWeight: '800', color: Colors.textSecondary },
 
-    // ── RESTAURANT CARD ───────────────────────────────────────────
+    // ── RESTAURANT CARD ───────────────────────────────────────────────────────
     restCard: {
-        backgroundColor: Colors.bgCard,
-        borderRadius: 22,
-        marginBottom: 16,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        overflow: 'hidden',
-        ...Shadow.card,
+        backgroundColor: Colors.bgCard, borderRadius: 22, marginBottom: 16,
+        borderWidth: 1.5, borderColor: Colors.border, overflow: 'hidden', ...Shadow.card,
     },
-    restCardDimmed: {
-        opacity: 0.5,
-    },
-    restImageArea: {
-        height: 148,
-        position: 'relative',
-    },
+    restCardDimmed: { opacity: 0.5 },
+    restImageArea: { height: 148, position: 'relative' },
     restImageBg: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors.bgElevated,
-        alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center',
     },
     restImageStripe: {
-        position: 'absolute',
-        width: 300,
-        height: 60,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        top: 30,
-        left: -40,
+        position: 'absolute', width: 300, height: 60,
+        backgroundColor: 'rgba(255,255,255,0.06)', top: 30, left: -40,
         transform: [{ rotate: '-8deg' }],
     },
     vegIndicator: {
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        width: 26,
-        height: 26,
-        borderRadius: 7,
-        borderWidth: 2,
-        backgroundColor: Colors.bgCard,
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'absolute', top: 12, left: 12, width: 26, height: 26,
+        borderRadius: 7, borderWidth: 2, backgroundColor: Colors.bgCard,
+        alignItems: 'center', justifyContent: 'center',
     },
-    vegDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-    },
+    vegDot: { width: 10, height: 10, borderRadius: 5 },
     ratingBadge: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-        backgroundColor: Colors.textPrimary,
-        borderRadius: 9,
-        paddingHorizontal: 9,
-        paddingVertical: 5,
+        position: 'absolute', top: 12, right: 12, flexDirection: 'row',
+        alignItems: 'center', gap: 3, backgroundColor: Colors.textPrimary,
+        borderRadius: 9, paddingHorizontal: 9, paddingVertical: 5,
     },
-    ratingBadgeStar: {
-        fontSize: 10,
-        color: Colors.amber,
-    },
-    ratingBadgeText: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 13,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -0.3,
-    },
+    ratingBadgeStar: { fontSize: 10, color: Colors.amber },
+    ratingBadgeText: { fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.3 },
     etaBadge: {
-        position: 'absolute',
-        bottom: 10,
-        right: 12,
-        backgroundColor: 'rgba(26,22,16,0.65)',
-        borderRadius: 9,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        position: 'absolute', bottom: 10, right: 12,
+        backgroundColor: 'rgba(26,22,16,0.65)', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 5,
     },
-    etaBadgeText: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        color: '#FFFFFF',
-        fontWeight: '700',
+    etaBadgeText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
+    verifiedBadge: {
+        position: 'absolute', bottom: 10, left: 12,
+        backgroundColor: 'rgba(22,163,74,0.85)', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 5,
     },
+    verifiedBadgeText: { fontSize: 10, color: '#FFFFFF', fontWeight: '800' },
     passedBanner: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(26,22,16,0.52)',
-        paddingVertical: 8,
-        alignItems: 'center',
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        backgroundColor: 'rgba(26,22,16,0.52)', paddingVertical: 8, alignItems: 'center',
     },
-    passedBannerInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
+    passedBannerInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     passedBannerText: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        color: '#FFFFFF',
-        fontWeight: '900',
-        letterSpacing: 1,
-        textTransform: 'uppercase',
+        fontSize: 11, color: '#FFFFFF', fontWeight: '900',
+        letterSpacing: 1, textTransform: 'uppercase',
     },
-    restContent: {
-        padding: 16,
-        gap: 10,
-    },
-    restTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: 8,
-    },
-    restName: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 17,
-        fontWeight: '900',
-        color: Colors.textPrimary,
-        letterSpacing: -0.5,
-        flex: 1,
-    },
-    restCuisine: {
-        fontFamily: 'DM Sans',
-        fontSize: 12,
-        color: Colors.textMuted,
-        fontWeight: '500',
-        marginTop: 2,
-    },
+    restContent: { padding: 16, gap: 10 },
+    restTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+    restName: { fontSize: 17, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -0.5, flex: 1 },
+    restCuisine: { fontSize: 12, color: Colors.textMuted, fontWeight: '500', marginTop: 2 },
     priceBadge: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        backgroundColor: Colors.bgElevated,
-        borderRadius: 8,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
-        flexShrink: 0,
+        flexDirection: 'row', alignItems: 'baseline', backgroundColor: Colors.bgElevated,
+        borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, flexShrink: 0,
     },
-    priceText: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 13,
-        fontWeight: '900',
-        color: Colors.textPrimary,
-        letterSpacing: -0.3,
-    },
-    priceFor: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        color: Colors.textMuted,
-        fontWeight: '600',
-    },
-    restDivider: {
-        height: 1,
-        backgroundColor: Colors.border,
-        marginVertical: 2,
-    },
-    restBottomRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-    },
-    metaGroup: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        flex: 1,
-        flexWrap: 'wrap',
-    },
+    priceText: { fontSize: 13, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -0.3 },
+    priceFor: { fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
+    restDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 2 },
+    restBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    metaGroup: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' },
     metaPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-        backgroundColor: Colors.bgElevated,
-        borderRadius: Radius.full,
-        paddingHorizontal: 9,
-        paddingVertical: 5,
+        flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.bgElevated,
+        borderRadius: Radius.full, paddingHorizontal: 9, paddingVertical: 5,
     },
-    metaIcon: {
-        fontSize: 10,
-    },
-    metaPillText: {
-        fontFamily: 'DM Sans',
-        fontSize: 11,
-        color: Colors.textSecondary,
-        fontWeight: '700',
-    },
-    metaDot: {
-        width: 3,
-        height: 3,
-        borderRadius: 1.5,
-        backgroundColor: Colors.border,
-    },
+    metaIcon: { fontSize: 10 },
+    metaPillText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
+    metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.border },
     tagChip: {
-        backgroundColor: Colors.amberGlow2,
-        borderRadius: Radius.full,
-        paddingHorizontal: 9,
-        paddingVertical: 5,
-        borderWidth: 1,
-        borderColor: Colors.borderActive,
+        backgroundColor: Colors.amberGlow2, borderRadius: Radius.full,
+        paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: Colors.borderActive,
     },
-    tagChipText: {
-        fontFamily: 'DM Sans',
-        fontSize: 10,
-        color: Colors.amber,
-        fontWeight: '800',
-    },
+    tagChipText: { fontSize: 10, color: Colors.amber, fontWeight: '800' },
     menuCta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: Colors.amber,
-        borderRadius: 11,
-        paddingVertical: 9,
-        paddingHorizontal: 14,
-        flexShrink: 0,
-        ...Shadow.amber,
+        flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.amber,
+        borderRadius: 11, paddingVertical: 9, paddingHorizontal: 14, flexShrink: 0, ...Shadow.amber,
     },
-    menuCtaText: {
-        fontFamily: 'SpaceGrotesk-Bold',
-        fontSize: 13,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: -0.2,
-    },
-    menuCtaArrow: {
-        fontSize: 13,
-        color: '#FFFFFF',
-        fontWeight: '900',
-    },
+    menuCtaText: { fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.2 },
+    menuCtaArrow: { fontSize: 13, color: '#FFFFFF', fontWeight: '900' },
+
+    // ── EMPTY STATE ───────────────────────────────────────────────────────────
+    emptyState: { alignItems: 'center', paddingVertical: 40, gap: 8 },
+    emptyStateEmoji: { fontSize: 48, marginBottom: 8 },
+    emptyStateTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
+    emptyStateDesc: { fontSize: 13, color: Colors.textMuted, fontWeight: '500', textAlign: 'center' },
 });

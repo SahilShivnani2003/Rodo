@@ -10,6 +10,11 @@ import {
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { Restaurant } from '@/features/restaurant/types/Restaurant';
+import { useAuthStore } from '@/store/useAuthStore';
+import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstable';
+import { OwnerTabParamList } from '@/types/OwnerTabParamList';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/types/RootStackParamList';
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 const MOCK_RESTAURANT: Restaurant = {
@@ -36,14 +41,6 @@ const MOCK_RESTAURANT: Restaurant = {
     routes: ['Bhopal–Sehore', 'Sehore–Ashta'],
     createdAt: '2024-01-12T10:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
-};
-
-const MOCK_OWNER = {
-    name: 'Rajesh Sharma',
-    phone: '8800000005',
-    email: 'rajesh@example.com',
-    profileImage: null,
-    lastLogin: '2025-04-06T09:00:00Z',
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -112,10 +109,12 @@ function SectionCard({ title, children }: { title: string; children: React.React
     );
 }
 
+type ownerProfileProps = NativeBottomTabScreenProps<OwnerTabParamList, 'profile'>;
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function OwnerProfileScreen() {
+export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
+    const {removeAuth, user} = useAuthStore();
     const r = MOCK_RESTAURANT;
-    const o = MOCK_OWNER;
+    const o = user;
 
     const [notifOrders, setNotifOrders] = useState(true);
     const [notifReviews, setNotifReviews] = useState(true);
@@ -134,6 +133,14 @@ export default function OwnerProfileScreen() {
         year: 'numeric',
     });
 
+    const handleLogOut = async() =>{
+        await removeAuth();
+
+        navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().reset({
+            index: 0,
+            routes: [{name: 'login'}]
+        })
+    }
     return (
         <ScrollView
             style={styles.root}
@@ -219,13 +226,13 @@ export default function OwnerProfileScreen() {
 
             {/* ── Owner info ── */}
             <SectionCard title="👤 Owner">
-                <InfoRow icon="🙍" label="Name" value={o.name} />
-                <InfoRow icon="📞" label="Phone" value={`+91 ${o.phone}`} />
-                <InfoRow icon="✉️" label="Email" value={o.email} />
+                <InfoRow icon="🙍" label="Name" value={o?.name || ''} />
+                <InfoRow icon="📞" label="Phone" value={`+91 ${o?.phone}`} />
+                <InfoRow icon="✉️" label="Email" value={o?.email ||''} />
                 <InfoRow
                     icon="🕐"
                     label="Last Login"
-                    value={new Date(o.lastLogin).toLocaleString('en-IN')}
+                    value={new Date(o?.lastLogin || '').toLocaleString('en-IN')}
                 />
             </SectionCard>
 
@@ -325,7 +332,7 @@ export default function OwnerProfileScreen() {
                     danger
                 />
                 <View style={styles.settingDivider} />
-                <SettingRow icon="🚪" label="Sign Out" onPress={() => {}} danger />
+                <SettingRow icon="🚪" label="Sign Out" onPress={handleLogOut} danger />
             </SectionCard>
 
             {/* Version */}

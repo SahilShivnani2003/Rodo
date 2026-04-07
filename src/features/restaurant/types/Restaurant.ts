@@ -1,6 +1,7 @@
 export type FoodType = 'veg' | 'non-veg' | 'both';
 
 export interface Restaurant {
+  _id?:string;
   owner: string;
 
   name: string;

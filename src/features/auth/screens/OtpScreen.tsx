@@ -13,10 +13,15 @@ import {
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import { useValidateOtp } from '../hooks/useValidateOtp';
+import { useAuthStore } from '@/store/useAuthStore';
+import { User } from '@/types/User';
+import { ApiError } from '@/types/ApiError';
+import { alert } from '@/utils/globalAlert';
+import useAlert from '@/hooks/useAlert';
 
 // ─── Dev Mode Config ──────────────────────────────────────────────────────────
 const DEV_MODE = __DEV__;
-const DEV_OTP = '123456'; // The fixed OTP accepted in dev/staging
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OTP_LENGTH = 6;
@@ -25,6 +30,9 @@ type otpProps = NativeStackScreenProps<RootStackParamList, 'otpLogin'>;
 
 export default function OTPScreen({ navigation, route }: otpProps) {
     const phone = route?.params?.phone || '98765 43210';
+    const DEV_OTP = route?.params?.otp;
+    const { setAuth } = useAuthStore();
+    const { mutate: verifyOtp  } = useValidateOtp();
     const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
     const [timer, setTimer] = useState(30);
     const [canResend, setCanResend] = useState(false);
@@ -79,11 +87,25 @@ export default function OTPScreen({ navigation, route }: otpProps) {
             Animated.timing(buttonScale, { toValue: 1, duration: 80, useNativeDriver: true }),
         ]).start();
 
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            navigation.navigate('loginSuccess');
-        }, 1000);
+         setLoading(true);
+
+         verifyOtp(
+            {
+                phone: phone,
+                otp: DEV_OTP
+            },
+            {
+                onSuccess: (data)=>{
+                    setAuth(data?.data?.user, data?.data?.token);
+                    navigation.navigate('loginSuccess');
+                },
+                onError:(error:ApiError) =>{
+                    alert.error( error?.message || 'Validation failed')
+
+
+                }
+            }
+         )
     };
 
     const handleResend = () => {

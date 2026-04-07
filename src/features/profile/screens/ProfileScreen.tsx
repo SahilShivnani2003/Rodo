@@ -3,10 +3,12 @@ import { Colors, Shadow, Radius } from '../../../theme';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import { MainTabParamList } from '@/types/MainTabParamList';
+import { useAuthStore } from '@/store/useAuthStore';
 
 type profileProps = NativeStackScreenProps<MainTabParamList, 'profile'>;
 
 export function ProfileScreen({ navigation }: profileProps) {
+    const { user, removeAuth } = useAuthStore();
     const menuItems = [
         { icon: '📦', label: 'Order History', onPress: () => {} },
         { icon: '🎟️', label: 'My Coupons', onPress: () => {} },
@@ -16,10 +18,14 @@ export function ProfileScreen({ navigation }: profileProps) {
         {
             icon: '🚪',
             label: 'Log Out',
-            onPress: () =>
-                navigation
-                    .getParent<NativeStackNavigationProp<RootStackParamList>>()
-                    .replace('welcome'),
+            onPress: async () => {
+                await removeAuth();
+
+                navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().reset({
+                    index: 0,
+                    routes: [{ name: 'login' }],
+                });
+            },
             danger: true,
         },
     ];
@@ -33,8 +39,8 @@ export function ProfileScreen({ navigation }: profileProps) {
                 <View style={profileStyles.avatar}>
                     <Text style={{ fontSize: 38 }}>👤</Text>
                 </View>
-                <Text style={profileStyles.name}>Rahul Sharma</Text>
-                <Text style={profileStyles.phone}>+91 98765 43210</Text>
+                <Text style={profileStyles.name}>{user?.name}</Text>
+                <Text style={profileStyles.phone}>{user?.phone}</Text>
                 <TouchableOpacity style={profileStyles.editBtn}>
                     <Text style={profileStyles.editText}>Edit Profile</Text>
                 </TouchableOpacity>

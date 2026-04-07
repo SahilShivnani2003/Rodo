@@ -82,7 +82,7 @@ export const createRestaurant = async (data: Restaurant) => {
     try {
         console.log('Creating restaurant ...');
 
-        const res = await privateClient.post('/restaurants');
+        const res = await privateClient.post('/restaurants', data);
 
         console.log('Restaurant created : ', res.data);
 

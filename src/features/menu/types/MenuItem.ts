@@ -1,6 +1,7 @@
 export type FoodType = 'veg' | 'non-veg' | 'egg';
 
 export interface MenuItem {
+    _id?:string;
     restaurant: string;
 
     name: string;

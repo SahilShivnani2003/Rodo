@@ -11,10 +11,12 @@ import {
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import { useAuthStore } from '@/store/useAuthStore';
 
 type loginSuccessProps = NativeStackScreenProps<RootStackParamList, 'loginSuccess'>;
 
 export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
+    const { user } = useAuthStore();
     const checkScale = useRef(new Animated.Value(0)).current;
     const checkOpacity = useRef(new Animated.Value(0)).current;
     const ring1Scale = useRef(new Animated.Value(0.5)).current;
@@ -210,9 +212,17 @@ export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
             >
                 <TouchableOpacity
                     style={styles.startBtn}
-                    onPress={() => navigation.navigate('main',{
-                        screen:'home'
-                    })}
+                    onPress={() => {
+                        if (user?.role === 'customer') {
+                            navigation.replace('main', {
+                                screen: 'home',
+                            });
+                        } else {
+                            navigation.replace('owner', {
+                                screen: 'dashboard',
+                            });
+                        }
+                    }}
                     activeOpacity={0.85}
                 >
                     <Text style={styles.startBtnText}>Start Exploring 🛣️</Text>

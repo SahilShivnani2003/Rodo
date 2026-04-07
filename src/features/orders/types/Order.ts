@@ -1,7 +1,7 @@
 export type FoodType = 'veg' | 'non-veg' | 'egg';
 
 export interface OrderItem {
-    menuItem: string;
+    menuItemId: string;
     name: string;
     price: number;
     quantity: number;
@@ -29,11 +29,24 @@ export interface OrderStatusHistory {
     note?: string;
 }
 
+export interface OrderRestaurant {
+    _id: string;
+    name: string;
+    coverImage?: string;
+    address?: {
+        street?: string;
+        city: string;
+        state?: string;
+        pincode?: string;
+    };
+}
+
 export interface Order {
     orderNumber?: string;
 
-    customer: string;
-    restaurant: string;
+    customer?: string; // optional — resolved server-side from auth token
+    restaurantId?: string; // used when creating an order
+    restaurant?: string | OrderRestaurant; // string ID or populated object from API
 
     items: OrderItem[];
 
@@ -71,6 +84,6 @@ export interface Order {
     isManualOrder: boolean;
     createdBy?: string;
 
-    createdAt: string;
-    updatedAt: string;
+    createdAt?: string;
+    updatedAt?: string;
 }

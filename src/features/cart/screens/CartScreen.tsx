@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,56 +8,25 @@ import {
     TextInput,
     Platform,
     StatusBar,
-    Animated,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import { MenuItem } from '@/features/menu/types/MenuItem';
+import {
+    CartItem,
+    loadCartItems,
+    loadCartMetadata,
+    saveCartItems,
+    saveCartMetadata,
+    clearCart as clearCartStorage,
+} from '../services/cartService';
+import { Order, OrderItem, OrderType } from '@/features/orders/types/Order';
+import { useCreateOrder } from '@/features/orders/hooks/hooks';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface CartItem {
-    id: string;
-    name: string;
-    desc: string;
-    price: number;
-    qty: number;
-    isVeg: boolean;
-    emoji: string;
-}
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const INITIAL_ITEMS: CartItem[] = [
-    {
-        id: '1',
-        name: 'Full Rajasthani Thali',
-        desc: 'Dal, Baati, Churma, 3 Sabzi, Rice, Roti',
-        price: 180,
-        qty: 2,
-        isVeg: true,
-        emoji: '🍛',
-    },
-    {
-        id: '2',
-        name: 'Masala Chai',
-        desc: 'Freshly brewed spiced tea',
-        price: 20,
-        qty: 2,
-        isVeg: true,
-        emoji: '☕',
-    },
-    {
-        id: '3',
-        name: 'Samosa (2 pcs)',
-        desc: 'Crispy samosa with tamarind chutney',
-        price: 30,
-        qty: 1,
-        isVeg: true,
-        emoji: '🥟',
-    },
-];
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const COUPONS: Record<string, number> = {
     RODO10: 10,
@@ -66,16 +35,25 @@ const COUPONS: Record<string, number> = {
 };
 
 const ETA_OPTIONS = ['30 min', '45 min', '60 min', 'Custom'];
-const DINE_OPTIONS = ['Dine-in', 'Takeaway'];
+
+const DINE_OPTIONS: { label: string; value: OrderType }[] = [
+    { label: 'Dine-in', value: 'dine-in' },
+    { label: 'Takeaway', value: 'takeaway' },
+];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-// Veg / Non-veg indicator
-const VegBadge = ({ isVeg }: { isVeg: boolean }) => (
-    <View style={[badge.wrap, { borderColor: isVeg ? Colors.vegGreen : Colors.redPin }]}>
-        <View style={[badge.dot, { backgroundColor: isVeg ? Colors.vegGreen : Colors.redPin }]} />
-    </View>
-);
+const VegBadge = ({ foodType }: { foodType: MenuItem['foodType'] }) => {
+    const isVeg = foodType === 'veg';
+    const isEgg = foodType === 'egg';
+    const color = isVeg ? Colors.vegGreen : isEgg ? '#FFA500' : Colors.redPin;
+    return (
+        <View style={[badge.wrap, { borderColor: color }]}>
+            <View style={[badge.dot, { backgroundColor: color }]} />
+        </View>
+    );
+};
+
 const badge = StyleSheet.create({
     wrap: {
         width: 16,
@@ -89,7 +67,6 @@ const badge = StyleSheet.create({
     dot: { width: 7, height: 7, borderRadius: 3.5 },
 });
 
-// Qty stepper
 const QtyStepper = ({
     qty,
     onInc,
@@ -109,6 +86,7 @@ const QtyStepper = ({
         </TouchableOpacity>
     </View>
 );
+
 const stepper = StyleSheet.create({
     wrap: {
         flexDirection: 'row',
@@ -118,23 +96,10 @@ const stepper = StyleSheet.create({
         overflow: 'hidden',
         ...Shadow.amber,
     },
-    btn: {
-        width: 30,
-        height: 30,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    btn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
     btnText: { fontSize: 14, color: '#fff', fontWeight: '800' },
-    qty: {
-        minWidth: 24,
-        textAlign: 'center',
-        fontSize: 13,
-        fontWeight: '800',
-        color: '#fff',
-    },
+    qty: { minWidth: 24, textAlign: 'center', fontSize: 13, fontWeight: '800', color: '#fff' },
 });
-
-// ─── Section header ───────────────────────────────────────────────────────────
 
 const SectionHeader = ({ title, sub }: { title: string; sub?: string }) => (
     <View style={styles.sectionHeader}>
@@ -143,52 +108,145 @@ const SectionHeader = ({ title, sub }: { title: string; sub?: string }) => (
     </View>
 );
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-type cartProps = NativeStackScreenProps<RootStackParamList, 'cart'>;
+const BillRow = ({
+    label,
+    value,
+    isBold,
+    highlight,
+}: {
+    label: string;
+    value: string;
+    isBold?: boolean;
+    highlight?: boolean;
+}) => (
+    <View style={billRow.row}>
+        <Text style={[billRow.label, isBold && billRow.bold, highlight && billRow.green]}>
+            {label}
+        </Text>
+        <Text style={[billRow.value, isBold && billRow.bold, highlight && billRow.green]}>
+            {value}
+        </Text>
+    </View>
+);
 
-export default function CartScreen({ navigation }: cartProps) {
-    const [items, setItems] = useState<CartItem[]>(INITIAL_ITEMS);
+const billRow = StyleSheet.create({
+    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+    label: { fontSize: 13, color: Colors.textSecondary },
+    value: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
+    bold: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+    green: { color: Colors.vegGreen, fontWeight: '700' },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
+type CartProps = NativeStackScreenProps<RootStackParamList, 'cart'>;
+
+export default function CartScreen({ navigation, route }: CartProps) {
+    const [items, setItems] = useState<CartItem[]>([]);
     const [couponCode, setCouponCode] = useState('');
     const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(
         null,
     );
     const [couponError, setCouponError] = useState('');
     const [selectedETA, setSelectedETA] = useState('30 min');
-    const [dineMode, setDineMode] = useState('Dine-in');
+    const [dineMode, setDineMode] = useState<OrderType>('dine-in');
     const [specialNote, setSpecialNote] = useState('');
     const [noteExpanded, setNoteExpanded] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // ── Cart math ────────────────────────────────────────────────────────────
-    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-    const gst = Math.round(subtotal * 0.05);
+    const { mutateAsync: placeOrder, isPending: isPlacingOrder } = useCreateOrder();
+
+    // ── Load cart on mount ────────────────────────────────────────────────────
+    useEffect(() => {
+        loadCart();
+    }, []);
+
+    // ── Merge incoming items from route params ────────────────────────────────
+    useEffect(() => {
+        if (!route?.params?.cartItems?.length) return;
+        (async () => {
+            const existing = await loadCartItems();
+            const incoming: CartItem[] = route.params.cartItems;
+            const merged = [...existing];
+            for (const item of incoming) {
+                const idx = merged.findIndex(e => e._id === item._id);
+                if (idx !== -1) merged[idx] = { ...merged[idx], qty: merged[idx].qty + item.qty };
+                else merged.push(item);
+            }
+            setItems(merged);
+            await saveCartItems(merged);
+        })();
+    }, [route?.params?.cartItems]);
+
+    // ── Persist on change ─────────────────────────────────────────────────────
+    useEffect(() => {
+        if (isLoading) return;
+        if (items.length > 0) saveCartItems(items);
+        saveCartMetadata({ selectedETA, dineMode, specialNote, appliedCoupon });
+    }, [items, selectedETA, dineMode, specialNote, appliedCoupon, isLoading]);
+
+    const loadCart = async () => {
+        try {
+            const [cartItems, metadata] = await Promise.all([loadCartItems(), loadCartMetadata()]);
+            setItems(cartItems);
+            setSelectedETA(metadata.selectedETA);
+            setDineMode((metadata.dineMode as OrderType) ?? 'dine-in');
+            setSpecialNote(metadata.specialNote);
+            setAppliedCoupon(metadata.appliedCoupon);
+        } catch {
+            Alert.alert('Error', 'Failed to load cart.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const clearCart = async () => {
+        await clearCartStorage();
+        setItems([]);
+        setAppliedCoupon(null);
+        setCouponCode('');
+        setSpecialNote('');
+        setSelectedETA('30 min');
+        setDineMode('dine-in');
+    };
+
+    // ── Cart math ─────────────────────────────────────────────────────────────
+    const subtotal = items.reduce((s, i) => s + (i.discountedPrice || i.price) * i.qty, 0);
+    const GST_RATE = 5;
+    const gst = Math.round(subtotal * (GST_RATE / 100));
     const discount = appliedCoupon?.discount ?? 0;
     const total = subtotal + gst - discount;
     const totalQty = items.reduce((s, i) => s + i.qty, 0);
+    const restaurantId = items[0]?.restaurant ?? '';
 
-    // ── Item mutations ───────────────────────────────────────────────────────
+    // ── Item mutations ────────────────────────────────────────────────────────
     const inc = (id: string) =>
-        setItems(prev => prev.map(i => (i.id === id ? { ...i, qty: i.qty + 1 } : i)));
+        setItems(prev => prev.map(i => (i._id === id ? { ...i, qty: i.qty + 1 } : i)));
 
     const dec = (id: string) =>
         setItems(prev => {
-            const item = prev.find(i => i.id === id);
+            const item = prev.find(i => i._id === id);
             if (!item) return prev;
             if (item.qty === 1) {
-                // confirm remove
                 Alert.alert('Remove item?', `Remove "${item.name}" from cart?`, [
                     { text: 'Cancel', style: 'cancel' },
                     {
                         text: 'Remove',
                         style: 'destructive',
-                        onPress: () => setItems(p => p.filter(i => i.id !== id)),
+                        onPress: () => {
+                            const next = prev.filter(i => i._id !== id);
+                            setItems(next);
+                            if (next.length === 0) clearCart();
+                            else saveCartItems(next);
+                        },
                     },
                 ]);
                 return prev;
             }
-            return prev.map(i => (i.id === id ? { ...i, qty: i.qty - 1 } : i));
+            return prev.map(i => (i._id === id ? { ...i, qty: i.qty - 1 } : i));
         });
 
-    // ── Coupon logic ─────────────────────────────────────────────────────────
+    // ── Coupon ────────────────────────────────────────────────────────────────
     const applyCoupon = () => {
         const code = couponCode.trim().toUpperCase();
         if (!code) {
@@ -211,27 +269,91 @@ export default function CartScreen({ navigation }: cartProps) {
         setCouponError('');
     };
 
-    if (items.length === 0) {
-        return <EmptyCart navigation={navigation} />;
+    // ── Place order ───────────────────────────────────────────────────────────
+    const handlePlaceOrder = async () => {
+        if (isPlacingOrder) return;
+
+        const etaMinutesMap: Record<string, number> = {
+            '30 min': 30,
+            '45 min': 45,
+            '60 min': 60,
+            Custom: 60,
+        };
+
+        const etaMinutes = etaMinutesMap[selectedETA] ?? 30;
+
+        // customerETA must be ISO 8601 — compute actual arrival datetime
+        const etaDate = new Date(Date.now() + etaMinutes * 60 * 1000).toISOString();
+
+        const orderItems: OrderItem[] = items.map(item => ({
+            menuItemId: item._id!,
+            name: item.name,
+            price: item.discountedPrice ?? item.price,
+            quantity: item.qty,
+            foodType: item.foodType,
+        }));
+
+        const payload: Order = {
+            restaurantId,
+            items: orderItems,
+            subtotal,
+            gstAmount: gst,
+            gstRate: GST_RATE,
+            discount,
+            totalAmount: total,
+            ...(appliedCoupon && { couponCode: appliedCoupon.code }),
+            orderType: dineMode,
+            customerETA: etaDate,
+            etaMinutes,
+            status: 'pending',
+            paymentMethod: 'cash',
+            paymentStatus: 'pending',
+            isManualOrder: false,
+        };
+
+        try {
+            const response = await placeOrder(payload);
+            await clearCart();
+            navigation.navigate('main', {
+                screen: 'orders',
+                params: { orderId: response?.data?._id ?? response?._id },
+            });
+        } catch (error: any) {
+            Alert.alert(
+                'Order Failed',
+                error?.response?.data?.message ?? 'Something went wrong. Please try again.',
+            );
+        }
+    };
+
+    // ── Guards ────────────────────────────────────────────────────────────────
+    if (isLoading) {
+        return (
+            <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+                <ActivityIndicator color={Colors.brandRed} />
+            </View>
+        );
     }
+
+    if (items.length === 0) return <EmptyCart navigation={navigation} />;
 
     return (
         <View style={styles.root}>
-            {/* ── Header ── */}
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
                     <Text style={styles.headerTitle}>Your Cart</Text>
-                    <Text style={styles.headerSub}>{totalQty} items · Shree Dhaba</Text>
+                    <Text style={styles.headerSub}>{totalQty} items</Text>
                 </View>
                 <TouchableOpacity
                     style={styles.clearBtn}
                     onPress={() =>
                         Alert.alert('Clear cart?', 'Remove all items?', [
                             { text: 'Cancel', style: 'cancel' },
-                            { text: 'Clear', style: 'destructive', onPress: () => setItems([]) },
+                            { text: 'Clear', style: 'destructive', onPress: clearCart },
                         ])
                     }
                 >
@@ -245,14 +367,14 @@ export default function CartScreen({ navigation }: cartProps) {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* ── Restaurant info strip ── */}
+                {/* Restaurant strip */}
                 <View style={styles.restaurantStrip}>
                     <View style={styles.restaurantIcon}>
                         <Text style={{ fontSize: 20 }}>🍽️</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.restaurantName}>Shree Dhaba</Text>
-                        <Text style={styles.restaurantMeta}>📍 32 km away · ⏱ ~28 min</Text>
+                        <Text style={styles.restaurantName}>{restaurantId}</Text>
+                        <Text style={styles.restaurantMeta}>Tap "Add more" to browse menu</Text>
                     </View>
                     <TouchableOpacity
                         style={styles.addMoreBtn}
@@ -262,35 +384,44 @@ export default function CartScreen({ navigation }: cartProps) {
                     </TouchableOpacity>
                 </View>
 
-                {/* ── Cart Items ── */}
+                {/* Items */}
                 <SectionHeader title="Items" sub={`${totalQty} items`} />
                 <View style={styles.itemsCard}>
                     {items.map((item, index) => (
-                        <View key={item.id}>
+                        <View key={item._id || index}>
                             <View style={styles.itemRow}>
-                                {/* Left: veg badge + info */}
                                 <View style={styles.itemLeft}>
-                                    <VegBadge isVeg={item.isVeg} />
+                                    <VegBadge foodType={item.foodType} />
                                     <View style={styles.itemInfo}>
                                         <Text style={styles.itemName}>{item.name}</Text>
-                                        <Text style={styles.itemDesc} numberOfLines={1}>
-                                            {item.desc}
+                                        {item.description && (
+                                            <Text style={styles.itemDesc} numberOfLines={1}>
+                                                {item.description}
+                                            </Text>
+                                        )}
+                                        <Text style={styles.itemPrice}>
+                                            ₹{item.discountedPrice || item.price}
+                                            {item.discountedPrice && (
+                                                <Text style={styles.itemPriceStrike}>
+                                                    {' '}
+                                                    ₹{item.price}
+                                                </Text>
+                                            )}
                                         </Text>
-                                        <Text style={styles.itemPrice}>₹{item.price}</Text>
                                     </View>
                                 </View>
-
-                                {/* Right: emoji + stepper */}
                                 <View style={styles.itemRight}>
                                     <View style={styles.itemEmoji}>
-                                        <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                                        <Text style={{ fontSize: 24 }}>🍽️</Text>
                                     </View>
                                     <QtyStepper
                                         qty={item.qty}
-                                        onInc={() => inc(item.id)}
-                                        onDec={() => dec(item.id)}
+                                        onInc={() => inc(item._id || '')}
+                                        onDec={() => dec(item._id || '')}
                                     />
-                                    <Text style={styles.itemTotal}>₹{item.price * item.qty}</Text>
+                                    <Text style={styles.itemTotal}>
+                                        ₹{(item.discountedPrice || item.price) * item.qty}
+                                    </Text>
                                 </View>
                             </View>
                             {index < items.length - 1 && <View style={styles.itemDivider} />}
@@ -298,7 +429,7 @@ export default function CartScreen({ navigation }: cartProps) {
                     ))}
                 </View>
 
-                {/* ── Arrival time ── */}
+                {/* ETA */}
                 <SectionHeader title="🕐 Arrival Time" sub="We'll prepare your food accordingly" />
                 <View style={styles.etaRow}>
                     {ETA_OPTIONS.map(e => (
@@ -316,26 +447,31 @@ export default function CartScreen({ navigation }: cartProps) {
                     ))}
                 </View>
 
-                {/* ── Dine-in / Takeaway ── */}
+                {/* Order type */}
                 <SectionHeader title="🍽️ Order Type" />
                 <View style={styles.dineRow}>
                     {DINE_OPTIONS.map(d => (
                         <TouchableOpacity
-                            key={d}
-                            style={[styles.dineChip, dineMode === d && styles.dineChipActive]}
-                            onPress={() => setDineMode(d)}
+                            key={d.value}
+                            style={[styles.dineChip, dineMode === d.value && styles.dineChipActive]}
+                            onPress={() => setDineMode(d.value)}
                         >
-                            <Text style={styles.dineEmoji}>{d === 'Dine-in' ? '🍽️' : '🛍️'}</Text>
+                            <Text style={styles.dineEmoji}>
+                                {d.value === 'dine-in' ? '🍽️' : '🛍️'}
+                            </Text>
                             <Text
-                                style={[styles.dineText, dineMode === d && styles.dineTextActive]}
+                                style={[
+                                    styles.dineText,
+                                    dineMode === d.value && styles.dineTextActive,
+                                ]}
                             >
-                                {d}
+                                {d.label}
                             </Text>
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                {/* ── Special note ── */}
+                {/* Special note */}
                 <TouchableOpacity
                     style={styles.noteToggle}
                     onPress={() => setNoteExpanded(p => !p)}
@@ -357,7 +493,7 @@ export default function CartScreen({ navigation }: cartProps) {
                     />
                 )}
 
-                {/* ── Coupon ── */}
+                {/* Coupon */}
                 <SectionHeader title="🎟️ Coupon" />
                 {appliedCoupon ? (
                     <View style={styles.couponApplied}>
@@ -396,11 +532,11 @@ export default function CartScreen({ navigation }: cartProps) {
                 )}
                 {!!couponError && <Text style={styles.couponError}>⚠ {couponError}</Text>}
 
-                {/* ── Bill Summary ── */}
+                {/* Bill */}
                 <SectionHeader title="🧾 Bill Summary" />
                 <View style={styles.billCard}>
                     <BillRow label="Subtotal" value={`₹${subtotal}`} />
-                    <BillRow label="GST (5%)" value={`₹${gst}`} />
+                    <BillRow label={`GST (${GST_RATE}%)`} value={`₹${gst}`} />
                     {appliedCoupon && (
                         <BillRow
                             label={`Coupon (${appliedCoupon.code})`}
@@ -416,7 +552,6 @@ export default function CartScreen({ navigation }: cartProps) {
                     </View>
                 </View>
 
-                {/* ── Savings callout ── */}
                 {discount > 0 && (
                     <View style={styles.savingsCallout}>
                         <Text style={styles.savingsText}>
@@ -428,58 +563,33 @@ export default function CartScreen({ navigation }: cartProps) {
                 <View style={{ height: 120 }} />
             </ScrollView>
 
-            {/* ── Sticky checkout bar ── */}
+            {/* Checkout */}
             <View style={styles.checkoutBar}>
                 <View style={styles.checkoutLeft}>
                     <Text style={styles.checkoutTotal}>₹{total}</Text>
                     <Text style={styles.checkoutItems}>{totalQty} items</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.checkoutBtn}
-                    onPress={() => navigation.navigate('main',{
-                        screen: "orders"
-                    })}
+                    style={[styles.checkoutBtn, isPlacingOrder && { opacity: 0.7 }]}
+                    onPress={handlePlaceOrder}
                     activeOpacity={0.85}
+                    disabled={isPlacingOrder}
                 >
-                    <Text style={styles.checkoutBtnText}>Place Order</Text>
-                    <Text style={styles.checkoutBtnArrow}>→</Text>
+                    {isPlacingOrder ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                        <>
+                            <Text style={styles.checkoutBtnText}>Place Order</Text>
+                            <Text style={styles.checkoutBtnArrow}>→</Text>
+                        </>
+                    )}
                 </TouchableOpacity>
             </View>
         </View>
     );
 }
 
-// ─── Bill row ─────────────────────────────────────────────────────────────────
-
-const BillRow = ({
-    label,
-    value,
-    isBold,
-    highlight,
-}: {
-    label: string;
-    value: string;
-    isBold?: boolean;
-    highlight?: boolean;
-}) => (
-    <View style={billRow.row}>
-        <Text style={[billRow.label, isBold && billRow.bold, highlight && billRow.green]}>
-            {label}
-        </Text>
-        <Text style={[billRow.value, isBold && billRow.bold, highlight && billRow.green]}>
-            {value}
-        </Text>
-    </View>
-);
-const billRow = StyleSheet.create({
-    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-    label: { fontSize: 13, color: Colors.textSecondary },
-    value: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-    bold: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
-    green: { color: Colors.vegGreen, fontWeight: '700' },
-});
-
-// ─── Empty cart ───────────────────────────────────────────────────────────────
+// ─── Empty Cart ───────────────────────────────────────────────────────────────
 
 function EmptyCart({ navigation }: any) {
     return (
@@ -513,6 +623,7 @@ function EmptyCart({ navigation }: any) {
         </View>
     );
 }
+
 const emptyStyles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     header: {
@@ -535,12 +646,7 @@ const emptyStyles = StyleSheet.create({
         justifyContent: 'center',
     },
     title: { fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
-    body: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 36,
-    },
+    body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 },
     emoji: { fontSize: 64, marginBottom: 20 },
     emptyTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10 },
     emptyDesc: {
@@ -566,8 +672,6 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 20, paddingTop: 16 },
-
-    // Header
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -602,8 +706,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#FEE2E2',
     },
     clearBtnText: { fontSize: 12, fontWeight: '700', color: Colors.redPin },
-
-    // Restaurant strip
     restaurantStrip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -640,8 +742,6 @@ const styles = StyleSheet.create({
         borderColor: Colors.brandRed,
     },
     addMoreText: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
-
-    // Section header
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -655,8 +755,6 @@ const styles = StyleSheet.create({
         letterSpacing: -0.3,
     },
     sectionSub: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
-
-    // Items card
     itemsCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -678,6 +776,12 @@ const styles = StyleSheet.create({
     itemName: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },
     itemDesc: { fontSize: 11, color: Colors.textSecondary },
     itemPrice: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+    itemPriceStrike: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: Colors.textMuted,
+        textDecorationLine: 'line-through',
+    },
     itemRight: { alignItems: 'center', gap: 8 },
     itemEmoji: {
         width: 56,
@@ -688,19 +792,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     itemTotal: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
-    itemDivider: {
-        height: 1,
-        backgroundColor: Colors.border,
-        marginHorizontal: 12,
-    },
-
-    // ETA
-    etaRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 22,
-        flexWrap: 'wrap',
-    },
+    itemDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 12 },
+    etaRow: { flexDirection: 'row', gap: 8, marginBottom: 22, flexWrap: 'wrap' },
     etaChip: {
         paddingHorizontal: 16,
         paddingVertical: 9,
@@ -710,14 +803,9 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         ...Shadow.card,
     },
-    etaChipActive: {
-        backgroundColor: Colors.amberGlow2,
-        borderColor: Colors.brandRed,
-    },
+    etaChipActive: { backgroundColor: Colors.amberGlow2, borderColor: Colors.brandRed },
     etaText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
     etaTextActive: { color: Colors.brandRed, fontWeight: '700' },
-
-    // Dine mode
     dineRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
     dineChip: {
         flex: 1,
@@ -732,15 +820,10 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         ...Shadow.card,
     },
-    dineChipActive: {
-        backgroundColor: Colors.amberGlow2,
-        borderColor: Colors.brandRed,
-    },
+    dineChipActive: { backgroundColor: Colors.amberGlow2, borderColor: Colors.brandRed },
     dineEmoji: { fontSize: 18 },
     dineText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
     dineTextActive: { color: Colors.brandRed, fontWeight: '700' },
-
-    // Special note
     noteToggle: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -769,13 +852,7 @@ const styles = StyleSheet.create({
         marginBottom: 22,
         ...Shadow.card,
     },
-
-    // Coupon
-    couponRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 6,
-    },
+    couponRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
     couponInput: {
         flex: 1,
         backgroundColor: Colors.bgCard,
@@ -828,8 +905,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         marginTop: 2,
     },
-
-    // Bill card
     billCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -839,11 +914,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
         ...Shadow.card,
     },
-    billDivider: {
-        height: 1.5,
-        backgroundColor: Colors.border,
-        marginVertical: 8,
-    },
+    billDivider: { height: 1.5, backgroundColor: Colors.border, marginVertical: 8 },
     paymentBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -857,8 +928,6 @@ const styles = StyleSheet.create({
     },
     paymentIcon: { fontSize: 13 },
     paymentText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
-
-    // Savings callout
     savingsCallout: {
         backgroundColor: '#F0FDF4',
         borderRadius: Radius.md,
@@ -869,8 +938,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     savingsText: { fontSize: 13, fontWeight: '700', color: Colors.vegGreen },
-
-    // Checkout bar
     checkoutBar: {
         position: 'absolute',
         bottom: 0,

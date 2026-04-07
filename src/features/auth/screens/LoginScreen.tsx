@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import {
     View,
     Text,
@@ -15,6 +15,9 @@ import {
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import { useSendOtp } from '../hooks/useSendOtp';
+import useAlert from '@/hooks/useAlert';
+import { ApiError } from '@/types/ApiError';
 
 // ─── Dev Mode Config ──────────────────────────────────────────────────────────
 const DEV_MODE = __DEV__; // flip to false to hide in production
@@ -34,11 +37,13 @@ const DEV_ACCOUNTS = {
 
 type loginProps = NativeStackScreenProps<RootStackParamList, 'login'>;
 
-export default function LoginScreen({ navigation }: loginProps) {
+export default function LoginScreen({ navigation }: loginProps) {    
+    const alert = useAlert();
     const [phone, setPhone] = useState('');
     const [focused, setFocused] = useState(false);
     const [loading, setLoading] = useState(false);
     const [devOpen, setDevOpen] = useState(false);
+    const {mutate:sendOtp} = useSendOtp();
 
     const shakeAnim = useRef(new Animated.Value(0)).current;
     const buttonScale = useRef(new Animated.Value(1)).current;
@@ -63,10 +68,24 @@ export default function LoginScreen({ navigation }: loginProps) {
         ]).start();
 
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            navigation.navigate('otpLogin', { phone });
-        }, 800);
+        sendOtp(
+            {phone},
+            {
+                onSuccess:(data)=>{
+                    setLoading(false);
+                    alert.success('Otp Sent', data?.message || 'Otp sent successfully');
+                    console.log('Founded data : ', data);
+                    navigation.navigate('otpLogin',{
+                        phone: data?.data?.phone,
+                        otp: data?.data?.devOtp
+                    })
+                },
+                onError: (error:ApiError) =>{
+                    setLoading(false)
+                    alert.error('Failed', error?.message || 'Somthing went wrong')
+                }
+            }
+        )
     };
 
     const fillPhone = (p: string) => {

@@ -1,6 +1,4 @@
-// MenuScreen.tsx — Rodo (Light Theme)
-
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -9,66 +7,27 @@ import {
     TouchableOpacity,
     Platform,
     StatusBar,
+    ActivityIndicator,
+    Image,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
-
-const MENU_CATEGORIES = [
-    { id: 'thali', label: '🍱 Thali' },
-    { id: 'snacks', label: '🥪 Snacks' },
-    { id: 'drinks', label: '☕ Drinks' },
-    { id: 'desserts', label: '🍮 Desserts' },
-];
-
-const MENU_ITEMS = [
-    {
-        id: '1',
-        category: 'thali',
-        name: 'Full Rajasthani Thali',
-        desc: 'Dal, Baati, Churma, 3 Sabzi, Rice, Roti',
-        price: 180,
-        isVeg: true,
-        isBestseller: true,
-        prepTime: '15 min',
-    },
-    {
-        id: '2',
-        category: 'thali',
-        name: 'Mini Thali',
-        desc: '2 Sabzi, Dal, Rice, 2 Roti',
-        price: 120,
-        isVeg: true,
-        isBestseller: false,
-        prepTime: '12 min',
-    },
-    {
-        id: '3',
-        category: 'snacks',
-        name: 'Samosa (2 pcs)',
-        desc: 'Crispy samosa with tamarind chutney',
-        price: 30,
-        isVeg: true,
-        isBestseller: true,
-        prepTime: '5 min',
-    },
-    {
-        id: '4',
-        category: 'drinks',
-        name: 'Masala Chai',
-        desc: 'Freshly brewed spiced tea',
-        price: 20,
-        isVeg: true,
-        isBestseller: true,
-        prepTime: '3 min',
-    },
-];
+import { useGetResMenu } from '../hooks/useGetResMenu';
+import { MenuItem } from '../types/MenuItem';
+import { CartItem } from '@/features/cart/services/cartService';
+import { useGetResById } from '../hooks/useGetResById';
 
 const ETA_OPTIONS = ['30 min', '45 min', '60 min', 'Custom'];
 
-const useCart = () => {
+// ─── Cart ─────────────────────────────────────────────────────────────────────
+
+const useCart = (itemMap: Record<string, MenuItem>) => {
+    // qty map: itemId → quantity
     const [cart, setCart] = useState<Record<string, number>>({});
+
     const add = (id: string) => setCart(c => ({ ...c, [id]: (c[id] || 0) + 1 }));
+
     const remove = (id: string) =>
         setCart(c => {
             const n = { ...c };
@@ -76,15 +35,28 @@ const useCart = () => {
             else delete n[id];
             return n;
         });
+
     const qty = (id: string) => cart[id] || 0;
+
     const total = () =>
-        Object.entries(cart).reduce(
-            (s, [id, q]) => s + (MENU_ITEMS.find(m => m.id === id)?.price || 0) * q,
-            0,
-        );
+        Object.entries(cart).reduce((sum, [id, q]) => {
+            const item = itemMap[id];
+            if (!item) return sum;
+            return sum + (item.discountedPrice ?? item.price) * q;
+        }, 0);
+
     const count = () => Object.values(cart).reduce((a, b) => a + b, 0);
-    return { add, remove, qty, total, count };
+
+    /** Build CartItem[] from the current cart state */
+    const getCartItems = (): CartItem[] =>
+        Object.entries(cart)
+            .filter(([id, q]) => q > 0 && !!itemMap[id])
+            .map(([id, q]) => ({ ...itemMap[id], qty: q }));
+
+    return { add, remove, qty, total, count, getCartItems };
 };
+
+// ─── Qty control ──────────────────────────────────────────────────────────────
 
 const QtyControl = ({
     qty,
@@ -111,53 +83,115 @@ const QtyControl = ({
         </View>
     );
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 type menuProps = NativeStackScreenProps<RootStackParamList, 'menu'>;
 
-export default function MenuScreen({ navigation }: menuProps) {
-    const [activeCategory, setActiveCategory] = useState('thali');
+export default function MenuScreen({ navigation, route }: menuProps) {
+    const restaurantId = route?.params?.restaurantId;
+    const { data, isLoading } = useGetResMenu(restaurantId);
+    const { data: restaurantDetail } = useGetResById(restaurantId);
+    const res = restaurantDetail?.data?.restaurant;
+    const menuByCategory: Record<string, MenuItem[]> = data?.data?.menu ?? {};
+    const categories = useMemo(() => Object.keys(menuByCategory), [menuByCategory]);
+
+    // Build a flat id→item lookup for the cart hook
+    const itemMap = useMemo<Record<string, MenuItem>>(
+        () =>
+            Object.values(menuByCategory)
+                .flat()
+                .reduce<Record<string, MenuItem>>((acc, item) => {
+                    if (item._id) acc[item._id] = item;
+                    return acc;
+                }, {}),
+        [menuByCategory],
+    );
+
+    const [activeCategory, setActiveCategory] = useState<string>('');
     const [selectedETA, setSelectedETA] = useState('30 min');
-    const [dineMode, setDineMode] = useState('dine');
-    const { add, remove, qty, total, count } = useCart();
-    const filteredItems = MENU_ITEMS.filter(m => m.category === activeCategory);
+    const [dineMode, setDineMode] = useState<'dine' | 'take'>('dine');
+    const { add, remove, qty, total, count, getCartItems } = useCart(itemMap);
+
+    React.useEffect(() => {
+        if (categories.length && !activeCategory) {
+            setActiveCategory(categories[0]);
+        }
+    }, [categories]);
+
+    const filteredItems: MenuItem[] = menuByCategory[activeCategory] ?? [];
 
     return (
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
+
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
                 <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
+
             <ScrollView
                 style={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}
             >
                 {/* Hero */}
+                {/* Hero */}
                 <View style={styles.hero}>
                     <View style={styles.heroImageBg}>
-                        <Text style={styles.heroEmoji}>🍽️</Text>
+                        {res?.coverImage ? (
+                            <Image
+                                source={{ uri: res.coverImage }}
+                                style={styles.heroCoverImg}
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <Text style={styles.heroEmoji}>🍽️</Text>
+                        )}
                     </View>
                 </View>
+
                 <View style={styles.heroInfo}>
                     <View style={styles.heroTop}>
-                        <View>
-                            <Text style={styles.heroName}>Shree Dhaba</Text>
-                            <Text style={styles.heroCuisine}>North Indian · Thali</Text>
+                        <View style={{ flex: 1, marginRight: 12 }}>
+                            <Text style={styles.heroName}>{res?.name ?? 'Restaurant'}</Text>
+                            <Text style={styles.heroCuisine}>
+                                {res?.cuisines?.join(' · ') ?? ''}
+                            </Text>
                         </View>
                         <View style={styles.heroRatingBadge}>
                             <Text style={styles.heroStar}>★</Text>
-                            <Text style={styles.heroRating}>4.6</Text>
+                            <Text style={styles.heroRating}>{res?.rating?.toFixed(1) ?? '—'}</Text>
                         </View>
                     </View>
-                    <View style={styles.heroMeta}>
-                        {['📍 32 km', '⏱ ~28 min'].map(m => (
-                            <View key={m} style={styles.heroMetaChip}>
-                                <Text style={styles.heroMetaText}>{m}</Text>
+
+                    {!!res?.description && <Text style={styles.heroDesc}>{res.description}</Text>}
+
+                    <View style={[styles.heroMeta, { marginTop: 12 }]}>
+                        <View style={styles.heroMetaChip}>
+                            <Text style={styles.heroMetaText}>
+                                ⏱ ~{res?.avgPrepTimeMinutes ?? '?'} min
+                            </Text>
+                        </View>
+                        {res?.openingHours && (
+                            <View style={styles.heroMetaChip}>
+                                <Text style={styles.heroMetaText}>
+                                    🕐 {res.openingHours.open} – {res.openingHours.close}
+                                </Text>
                             </View>
-                        ))}
-                        <View style={[styles.heroMetaChip, { backgroundColor: '#dcfce7' }]}>
-                            <View style={styles.openDot} />
-                            <Text style={[styles.heroMetaText, { color: Colors.successGreen }]}>
-                                Open
+                        )}
+                        <View
+                            style={[
+                                styles.heroMetaChip,
+                                { backgroundColor: res?.isOpen ? '#dcfce7' : '#fee2e2' },
+                            ]}
+                        >
+                            {res?.isOpen && <View style={styles.openDot} />}
+                            <Text
+                                style={[
+                                    styles.heroMetaText,
+                                    { color: res?.isOpen ? Colors.successGreen : Colors.brandRed },
+                                ]}
+                            >
+                                {res?.isOpen ? 'Open' : 'Closed'}
                             </Text>
                         </View>
                     </View>
@@ -217,95 +251,154 @@ export default function MenuScreen({ navigation }: menuProps) {
                 </View>
 
                 {/* Category tabs */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.catTabScroll}
-                    contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
-                >
-                    {MENU_CATEGORIES.map(c => (
-                        <TouchableOpacity
-                            key={c.id}
-                            style={[styles.catTab, activeCategory === c.id && styles.catTabActive]}
-                            onPress={() => setActiveCategory(c.id)}
+                {isLoading ? (
+                    <ActivityIndicator style={{ marginTop: 20 }} color={Colors.brandRed} />
+                ) : (
+                    <>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.catTabScroll}
+                            contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
                         >
-                            <Text
-                                style={[
-                                    styles.catTabText,
-                                    activeCategory === c.id && styles.catTabTextActive,
-                                ]}
-                            >
-                                {c.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-
-                {/* Menu items */}
-                <View style={styles.menuList}>
-                    {filteredItems.map(item => (
-                        <View
-                            key={item.id}
-                            style={[styles.menuItem, qty(item.id) > 0 && styles.menuItemSelected]}
-                        >
-                            {item.isBestseller && (
-                                <View style={styles.bestseller}>
-                                    <Text style={styles.bestsellerText}>🏆 Bestseller</Text>
-                                </View>
-                            )}
-                            <View style={styles.menuItemInner}>
-                                <View style={styles.menuItemInfo}>
-                                    <View
+                            {categories.map((cat: string) => (
+                                <TouchableOpacity
+                                    key={cat}
+                                    style={[
+                                        styles.catTab,
+                                        activeCategory === cat && styles.catTabActive,
+                                    ]}
+                                    onPress={() => setActiveCategory(cat)}
+                                >
+                                    <Text
                                         style={[
-                                            styles.vegBox,
-                                            {
-                                                borderColor: item.isVeg
-                                                    ? Colors.vegGreen
-                                                    : Colors.redPin,
-                                            },
+                                            styles.catTabText,
+                                            activeCategory === cat && styles.catTabTextActive,
                                         ]}
                                     >
-                                        <View
-                                            style={[
-                                                styles.vegDot,
-                                                {
-                                                    backgroundColor: item.isVeg
-                                                        ? Colors.vegGreen
-                                                        : Colors.redPin,
-                                                },
-                                            ]}
-                                        />
-                                    </View>
-                                    <Text style={styles.menuItemName}>{item.name}</Text>
-                                    <Text style={styles.menuItemDesc}>{item.desc}</Text>
-                                    <View style={styles.menuItemMeta}>
-                                        <Text style={styles.menuItemPrice}>₹{item.price}</Text>
-                                        <View style={styles.prepBadge}>
-                                            <Text style={styles.prepText}>🧑‍🍳 {item.prepTime}</Text>
+                                        {cat}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        {/* Menu items */}
+                        <View style={styles.menuList}>
+                            {filteredItems.map((item, index) => {
+                                const id = item._id ?? `item-${index}`;
+                                const isBestseller =
+                                    item.isPopular || item.tags?.includes('Bestseller');
+                                const isVeg = item.foodType === 'veg';
+                                const hasDiscount =
+                                    item.discountedPrice !== undefined &&
+                                    item.discountedPrice < item.price;
+                                const canAddToCart = !!item._id && item.isAvailable;
+
+                                return (
+                                    <View
+                                        key={id}
+                                        style={[
+                                            styles.menuItem,
+                                            qty(id) > 0 && styles.menuItemSelected,
+                                            !item.isAvailable && styles.menuItemUnavailable,
+                                        ]}
+                                    >
+                                        {isBestseller && (
+                                            <View style={styles.bestseller}>
+                                                <Text style={styles.bestsellerText}>
+                                                    🏆 Bestseller
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        <View style={styles.menuItemInner}>
+                                            <View style={styles.menuItemInfo}>
+                                                <View
+                                                    style={[
+                                                        styles.vegBox,
+                                                        {
+                                                            borderColor: isVeg
+                                                                ? Colors.vegGreen
+                                                                : Colors.redPin,
+                                                        },
+                                                    ]}
+                                                >
+                                                    <View
+                                                        style={[
+                                                            styles.vegDot,
+                                                            {
+                                                                backgroundColor: isVeg
+                                                                    ? Colors.vegGreen
+                                                                    : Colors.redPin,
+                                                            },
+                                                        ]}
+                                                    />
+                                                </View>
+
+                                                <Text style={styles.menuItemName}>{item.name}</Text>
+
+                                                {!!item.description && (
+                                                    <Text style={styles.menuItemDesc}>
+                                                        {item.description}
+                                                    </Text>
+                                                )}
+
+                                                <View style={styles.menuItemMeta}>
+                                                    <View style={styles.priceBlock}>
+                                                        {hasDiscount && (
+                                                            <Text
+                                                                style={styles.menuItemPriceStrike}
+                                                            >
+                                                                ₹{item.price}
+                                                            </Text>
+                                                        )}
+                                                        <Text style={styles.menuItemPrice}>
+                                                            ₹{item.discountedPrice ?? item.price}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.prepBadge}>
+                                                        <Text style={styles.prepText}>
+                                                            🧑‍🍳 {item.preparationTime} min
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+
+                                            <View style={styles.menuItemRight}>
+                                                <View style={styles.menuImagePlaceholder}>
+                                                    <Text style={{ fontSize: 28 }}>🍛</Text>
+                                                </View>
+
+                                                {canAddToCart ? (
+                                                    <QtyControl
+                                                        qty={qty(id)}
+                                                        onAdd={() => add(id)}
+                                                        onRemove={() => remove(id)}
+                                                    />
+                                                ) : (
+                                                    <Text style={styles.unavailableText}>
+                                                        Unavailable
+                                                    </Text>
+                                                )}
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-                                <View style={styles.menuItemRight}>
-                                    <View style={styles.menuImagePlaceholder}>
-                                        <Text style={{ fontSize: 28 }}>🍛</Text>
-                                    </View>
-                                    <QtyControl
-                                        qty={qty(item.id)}
-                                        onAdd={() => add(item.id)}
-                                        onRemove={() => remove(item.id)}
-                                    />
-                                </View>
-                            </View>
+                                );
+                            })}
                         </View>
-                    ))}
-                </View>
+                    </>
+                )}
             </ScrollView>
 
             {count() > 0 && (
                 <TouchableOpacity
                     style={styles.cartBar}
                     activeOpacity={0.9}
-                    onPress={() => navigation.navigate('cart')}
+                    onPress={() =>
+                        navigation.navigate('cart', {
+                            cartItems: getCartItems(),
+                        })
+                    }
                 >
                     <View style={styles.cartBarLeft}>
                         <View style={styles.cartBadge}>
@@ -382,6 +475,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 4,
     },
+    heroCoverImg: { width: '100%', height: '100%' },
+    heroDesc: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+        lineHeight: 18,
+        marginTop: 6,
+    },
     openDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.successGreen },
     heroMetaText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
     sectionPad: { paddingHorizontal: 20, marginTop: 16 },
@@ -442,6 +542,7 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     menuItemSelected: { borderColor: Colors.brandRed, backgroundColor: Colors.amberGlow2 },
+    menuItemUnavailable: { opacity: 0.5 },
     bestseller: {
         backgroundColor: Colors.amberGlow,
         borderRadius: Radius.full,
@@ -473,7 +574,13 @@ const styles = StyleSheet.create({
     },
     menuItemDesc: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
     menuItemMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    priceBlock: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     menuItemPrice: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+    menuItemPriceStrike: {
+        fontSize: 12,
+        color: Colors.textSecondary,
+        textDecorationLine: 'line-through',
+    },
     prepBadge: {
         backgroundColor: Colors.bgElevated,
         borderRadius: Radius.full,
@@ -518,6 +625,13 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#FFFFFF',
         minWidth: 20,
+        textAlign: 'center',
+    },
+    unavailableText: {
+        fontSize: 11,
+        color: Colors.textSecondary,
+        fontWeight: '600',
+        width: 72,
         textAlign: 'center',
     },
     cartBar: {
