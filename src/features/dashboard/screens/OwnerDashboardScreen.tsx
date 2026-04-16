@@ -9,18 +9,27 @@ import {
     Switch,
 } from 'react-native';
 import { Colors, Radius, Shadow, Fonts } from '@theme/index';
-import { MOCK_RESTAURANT, RECENT_ORDERS } from '../data/data';
 import OrderRow from '../components/OrderRow';
 import QuickAction from '../components/QuickAction';
 import StatCard from '../components/StatCard';
+import { useOwnerRestaurant } from '../hooks/useOwnerRestaurant';
+import { useMyOrders } from '../hooks/useMyOrders';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEY } from '@/utils/queryKeys';
 
 export default function OwnerDashboardScreen() {
-    const [isOpen, setIsOpen] = useState(MOCK_RESTAURANT.isOpen);
-    const r = MOCK_RESTAURANT;
+    const { data, isLoading, error } = useOwnerRestaurant();
+    const qc = useQueryClient();
+    console.log('Cached data:', qc.getQueryData([QUERY_KEY.OWNER_RESTAURANT]));
+    const { data: orders } = useMyOrders();
+    console.log('Owner restaurant data:', data);
+    const [isOpen, setIsOpen] = useState(data?.isOpen || false);
+    const r = data;
+    const recetOrders = orders?.slice(0, 5) || [];
 
     const todayOrders = 38;
     const todayEarnings = 8_420;
-    const pendingCount = RECENT_ORDERS.filter(o => o.status === 'pending').length;
+    const pendingCount = recetOrders.filter((o: any) => o.status === 'pending').length;
 
     function formatCurrency(n: number) {
         return `₹${n.toLocaleString('en-IN')}`;
@@ -40,7 +49,7 @@ export default function OwnerDashboardScreen() {
                             {r.name
                                 .split(' ')
                                 .slice(0, 2)
-                                .map(w => w[0])
+                                .map((w: any) => w[0])
                                 .join('')}
                         </Text>
                     </View>
@@ -147,10 +156,10 @@ export default function OwnerDashboardScreen() {
                 </TouchableOpacity>
             </View>
             <View style={styles.ordersCard}>
-                {RECENT_ORDERS.map((o, i) => (
+                {recetOrders.map((o: any, i: any) => (
                     <React.Fragment key={o.orderNumber}>
                         <OrderRow order={o} />
-                        {i < RECENT_ORDERS.length - 1 && <View style={styles.orderDivider} />}
+                        {i < recetOrders.length - 1 && <View style={styles.orderDivider} />}
                     </React.Fragment>
                 ))}
             </View>

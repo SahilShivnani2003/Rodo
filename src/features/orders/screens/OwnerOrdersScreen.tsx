@@ -14,8 +14,8 @@ const MOCK_ORDERS: RichOrder[] = [
         restaurant: 'r1',
         customerName: 'Arjun Mehta',
         items: [
-            { menuItem: 'm1', name: 'Chicken Tikka', price: 220, quantity: 2, foodType: 'non-veg' },
-            { menuItem: 'm2', name: 'Butter Naan', price: 40, quantity: 4, foodType: 'veg' },
+            { menuItemId: 'm1', name: 'Chicken Tikka', price: 220, quantity: 2, foodType: 'non-veg' },
+            { menuItemId: 'm2', name: 'Butter Naan', price: 40, quantity: 4, foodType: 'veg' },
         ],
         subtotal: 600,
         gstAmount: 30,
@@ -40,7 +40,7 @@ const MOCK_ORDERS: RichOrder[] = [
         customerName: 'Priya Sharma',
         items: [
             {
-                menuItem: 'm3',
+                menuItemId: 'm3',
                 name: 'Mutton Biryani',
                 price: 320,
                 quantity: 1,
