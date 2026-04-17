@@ -1,171 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, Alert } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    Platform,
+    Alert,
+    ActivityIndicator,
+} from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { Order, OrderStatus } from '../types/Order';
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-type RichOrder = Order & { customerName: string; _id: string };
-
-const MOCK_ORDERS: RichOrder[] = [
-    {
-        _id: 'o1',
-        orderNumber: 'ORD-4821',
-        customer: 'c1',
-        restaurant: 'r1',
-        customerName: 'Arjun Mehta',
-        items: [
-            { menuItemId: 'm1', name: 'Chicken Tikka', price: 220, quantity: 2, foodType: 'non-veg' },
-            { menuItemId: 'm2', name: 'Butter Naan', price: 40, quantity: 4, foodType: 'veg' },
-        ],
-        subtotal: 600,
-        gstAmount: 30,
-        gstRate: 5,
-        discount: 0,
-        totalAmount: 630,
-        orderType: 'takeaway',
-        customerETA: '2025-04-06T13:45:00Z',
-        etaMinutes: 20,
-        status: 'pending',
-        paymentMethod: 'upi_at_restaurant',
-        paymentStatus: 'pending',
-        isManualOrder: false,
-        createdAt: '2025-04-06T13:25:00Z',
-        updatedAt: '2025-04-06T13:25:00Z',
-    },
-    {
-        _id: 'o2',
-        orderNumber: 'ORD-4820',
-        customer: 'c2',
-        restaurant: 'r1',
-        customerName: 'Priya Sharma',
-        items: [
-            {
-                menuItemId: 'm3',
-                name: 'Mutton Biryani',
-                price: 320,
-                quantity: 1,
-                foodType: 'non-veg',
-            },
-        ],
-        subtotal: 320,
-        gstAmount: 16,
-        gstRate: 5,
-        discount: 50,
-        totalAmount: 286,
-        orderType: 'dine-in',
-        customerETA: '2025-04-06T13:00:00Z',
-        etaMinutes: 15,
-        status: 'preparing',
-        paymentMethod: 'online',
-        paymentStatus: 'paid',
-        isManualOrder: false,
-        createdAt: '2025-04-06T12:45:00Z',
-        updatedAt: '2025-04-06T12:50:00Z',
-    },
-    {
-        _id: 'o3',
-        orderNumber: 'ORD-4819',
-        customer: 'c3',
-        restaurant: 'r1',
-        customerName: 'Rohan Verma',
-        items: [
-            { menuItem: 'm4', name: 'BBQ Platter', price: 550, quantity: 1, foodType: 'non-veg' },
-            { menuItem: 'm5', name: 'Cold Drink', price: 60, quantity: 2, foodType: 'veg' },
-        ],
-        subtotal: 670,
-        gstAmount: 33.5,
-        gstRate: 5,
-        discount: 0,
-        totalAmount: 703.5,
-        orderType: 'takeaway',
-        customerETA: '2025-04-06T12:30:00Z',
-        status: 'ready',
-        paymentMethod: 'cash',
-        paymentStatus: 'pending',
-        isManualOrder: false,
-        createdAt: '2025-04-06T12:10:00Z',
-        updatedAt: '2025-04-06T12:35:00Z',
-    },
-    {
-        _id: 'o4',
-        orderNumber: 'ORD-4818',
-        customer: 'c4',
-        restaurant: 'r1',
-        customerName: 'Sneha Patel',
-        items: [
-            { menuItem: 'm6', name: 'Dal Tadka', price: 150, quantity: 1, foodType: 'veg' },
-            { menuItem: 'm7', name: 'Butter Naan', price: 40, quantity: 2, foodType: 'veg' },
-        ],
-        subtotal: 230,
-        gstAmount: 11.5,
-        gstRate: 5,
-        discount: 0,
-        totalAmount: 241.5,
-        orderType: 'dine-in',
-        customerETA: '2025-04-06T11:30:00Z',
-        status: 'completed',
-        paymentMethod: 'online',
-        paymentStatus: 'paid',
-        isManualOrder: false,
-        createdAt: '2025-04-06T11:10:00Z',
-        updatedAt: '2025-04-06T11:35:00Z',
-    },
-    {
-        _id: 'o5',
-        orderNumber: 'ORD-4817',
-        customer: 'c5',
-        restaurant: 'r1',
-        customerName: 'Karan Singh',
-        items: [
-            { menuItem: 'm1', name: 'Chicken Tikka', price: 220, quantity: 1, foodType: 'non-veg' },
-        ],
-        subtotal: 220,
-        gstAmount: 11,
-        gstRate: 5,
-        discount: 0,
-        totalAmount: 231,
-        orderType: 'takeaway',
-        customerETA: '2025-04-06T10:50:00Z',
-        status: 'cancelled',
-        paymentMethod: 'online',
-        paymentStatus: 'refunded',
-        rejectionReason: 'Out of stock',
-        isManualOrder: false,
-        createdAt: '2025-04-06T10:30:00Z',
-        updatedAt: '2025-04-06T10:35:00Z',
-    },
-    {
-        _id: 'o6',
-        orderNumber: 'ORD-4816',
-        customer: 'c6',
-        restaurant: 'r1',
-        customerName: 'Anjali Gupta',
-        items: [
-            {
-                menuItem: 'm3',
-                name: 'Mutton Biryani',
-                price: 320,
-                quantity: 2,
-                foodType: 'non-veg',
-            },
-        ],
-        subtotal: 640,
-        gstAmount: 32,
-        gstRate: 5,
-        discount: 64,
-        totalAmount: 608,
-        orderType: 'takeaway',
-        customerETA: '2025-04-06T10:00:00Z',
-        status: 'confirmed',
-        paymentMethod: 'upi_at_restaurant',
-        paymentStatus: 'pending',
-        isManualOrder: false,
-        createdAt: '2025-04-06T09:40:00Z',
-        updatedAt: '2025-04-06T09:42:00Z',
-    },
-];
+import { useGetAllOrders, useUpdateOrderStatus } from '../hooks/hooks';
+import { useMyOrders } from '@/features/dashboard/hooks/useMyOrders';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
+
 const ALL_STATUS: (OrderStatus | 'all')[] = [
     'all',
     'pending',
@@ -176,15 +26,7 @@ const ALL_STATUS: (OrderStatus | 'all')[] = [
     'cancelled',
 ];
 
-const STATUS_META: Record<
-    string,
-    {
-        label: string;
-        color: string;
-        bg: string;
-        icon: string;
-    }
-> = {
+const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
     pending: { label: 'Pending', color: '#D97706', bg: '#FEF3C7', icon: '⏳' },
     confirmed: { label: 'Confirmed', color: '#2563EB', bg: '#EFF6FF', icon: '✅' },
     preparing: { label: 'Preparing', color: '#7C3AED', bg: '#EDE9FE', icon: '🍳' },
@@ -214,35 +56,57 @@ const PAYMENT_ICON: Record<string, string> = {
     online: '💳',
 };
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** The API may return either a plain string ID or a populated object for `restaurant`. */
+function orderId(order: Order): string {
+    // The API uses MongoDB _id; cast to any because the shared Order type omits it
+    return (order as any)._id ?? order.orderNumber ?? '';
+}
+
+function customerName(order: Order): string {
+    // If the server populates customer name, expose it; otherwise fall back
+    return (order as any).customerName ?? 'Customer';
+}
+
 // ─── Order card ──────────────────────────────────────────────────────────────
+
 function OrderCard({
     order,
     onStatusChange,
+    isUpdating,
 }: {
-    order: RichOrder;
-    onStatusChange: (id: string, status: OrderStatus) => void;
+    order: Order;
+    onStatusChange: (id: string, status: OrderStatus, reason?: string) => void;
+    isUpdating: boolean;
 }) {
     const meta = STATUS_META[order.status] ?? STATUS_META.pending;
     const nextSt = NEXT_STATUS[order.status];
     const actionLbl = ACTION_LABELS[order.status];
+    const id = orderId(order);
 
     const handleReject = () => {
-        Alert.alert('Reject Order', 'Are you sure?', [
+        Alert.alert('Reject Order', 'Are you sure you want to reject this order?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Reject',
                 style: 'destructive',
-                onPress: () => onStatusChange(order._id, 'rejected'),
+                onPress: () => onStatusChange(id, 'rejected', 'Rejected by restaurant'),
             },
         ]);
     };
 
-    const etaDate = new Date(order.customerETA);
-    const etaStr = etaDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const createdStr = new Date(order.createdAt).toLocaleTimeString('en-IN', {
+    const etaStr = new Date(order.customerETA).toLocaleTimeString('en-IN', {
         hour: '2-digit',
         minute: '2-digit',
     });
+    const createdStr = new Date(order.createdAt ?? '').toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+    const terminalStatuses: OrderStatus[] = ['completed', 'cancelled', 'rejected'];
+    const isTerminal = terminalStatuses.includes(order.status);
 
     return (
         <View style={styles.orderCard}>
@@ -250,7 +114,7 @@ function OrderCard({
             <View style={styles.orderTop}>
                 <View style={styles.orderTopLeft}>
                     <Text style={styles.orderNum}>{order.orderNumber}</Text>
-                    <Text style={styles.orderCustomer}>{order.customerName}</Text>
+                    <Text style={styles.orderCustomer}>{customerName(order)}</Text>
                 </View>
                 <View style={styles.orderTopRight}>
                     <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
@@ -270,16 +134,17 @@ function OrderCard({
                     {order.orderType === 'dine-in' ? '🍽 Dine-in' : '🛍 Takeaway'}
                 </Text>
                 <Text style={styles.metaChip}>
-                    {PAYMENT_ICON[order.paymentMethod]} {order.paymentMethod.replace(/_/g, ' ')}
+                    {PAYMENT_ICON[order.paymentMethod] ?? '💰'}{' '}
+                    {order.paymentMethod.replace(/_/g, ' ')}
                 </Text>
                 <Text style={styles.metaChip}>🕐 ETA {etaStr}</Text>
-                <Text style={styles.metaChip}>📥 {createdStr}</Text>
+                {order.createdAt && <Text style={styles.metaChip}>📥 {createdStr}</Text>}
             </View>
 
             {/* Items */}
             <View style={styles.itemsList}>
                 {order.items.map((item, i) => (
-                    <View key={i} style={styles.itemRow}>
+                    <View key={`${item.menuItemId}-${i}`} style={styles.itemRow}>
                         <View
                             style={[
                                 styles.foodDotSmall,
@@ -291,7 +156,9 @@ function OrderCard({
                         />
                         <Text style={styles.itemName}>{item.name}</Text>
                         <Text style={styles.itemQty}>×{item.quantity}</Text>
-                        <Text style={styles.itemPrice}>₹{item.price * item.quantity}</Text>
+                        <Text style={styles.itemPrice}>
+                            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                        </Text>
                     </View>
                 ))}
             </View>
@@ -299,7 +166,7 @@ function OrderCard({
             {/* Totals */}
             <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>Subtotal</Text>
-                <Text style={styles.totalsValue}>₹{order.subtotal}</Text>
+                <Text style={styles.totalsValue}>₹{order.subtotal.toLocaleString('en-IN')}</Text>
             </View>
             {order.discount > 0 && (
                 <View style={styles.totalsRow}>
@@ -307,7 +174,7 @@ function OrderCard({
                         Discount
                     </Text>
                     <Text style={[styles.totalsValue, { color: Colors.successGreen }]}>
-                        −₹{order.discount}
+                        −₹{order.discount.toLocaleString('en-IN')}
                     </Text>
                 </View>
             )}
@@ -342,22 +209,29 @@ function OrderCard({
                 </Text>
             </View>
 
-            {/* Action buttons */}
-            {actionLbl &&
-                nextSt &&
-                !['completed', 'cancelled', 'rejected'].includes(order.status) && (
-                    <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.rejectBtn} onPress={handleReject}>
-                            <Text style={styles.rejectBtnText}>Reject</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.acceptBtn}
-                            onPress={() => onStatusChange(order._id, nextSt)}
-                        >
+            {/* Action buttons — only for non-terminal statuses */}
+            {!isTerminal && actionLbl && nextSt && (
+                <View style={styles.actionRow}>
+                    <TouchableOpacity
+                        style={[styles.rejectBtn, isUpdating && styles.btnDisabled]}
+                        onPress={handleReject}
+                        disabled={isUpdating}
+                    >
+                        <Text style={styles.rejectBtnText}>Reject</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.acceptBtn, isUpdating && styles.btnDisabled]}
+                        onPress={() => onStatusChange(id, nextSt)}
+                        disabled={isUpdating}
+                    >
+                        {isUpdating ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                        ) : (
                             <Text style={styles.acceptBtnText}>{actionLbl}</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                        )}
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {order.rejectionReason && (
                 <View style={styles.rejectReason}>
@@ -369,9 +243,26 @@ function OrderCard({
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
+
 export default function OwnerOrdersScreen() {
     const [activeFilter, setActiveFilter] = useState<OrderStatus | 'all'>('all');
-    const [orders, setOrders] = useState(MOCK_ORDERS);
+    
+    // Fix 1: use the correct hook for restaurant owner view
+    const { data: orderData, isLoading } = useMyOrders();
+
+    // Fix 2: derive orders from API response; keep local copy for optimistic updates
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+    // Fix 3: add missing useEffect (was referenced but not imported in original)
+    useEffect(() => {
+        if (orderData?.data) {
+            setOrders(orderData.data);
+        }
+    }, [orderData]);
+
+    // Fix 4: wire mutation for real API calls
+    const { mutateAsync: updateStatus } = useUpdateOrderStatus();
 
     const filtered = useMemo(() => {
         if (activeFilter === 'all') return orders;
@@ -386,8 +277,21 @@ export default function OwnerOrdersScreen() {
         return map;
     }, [orders]);
 
-    const handleStatusChange = (id: string, status: OrderStatus) => {
-        setOrders(prev => prev.map(o => (o._id === id ? { ...o, status } : o)));
+    // Fix 5: call the mutation and do optimistic update; revert on error
+    const handleStatusChange = async (id: string, status: OrderStatus, rejectionReason = '') => {
+        // Optimistic update
+        const prev = orders;
+        setOrders(p => p.map(o => (orderId(o) === id ? { ...o, status, rejectionReason } : o)));
+        setUpdatingId(id);
+        try {
+            await updateStatus({ id, data: { status, rejectionReason } });
+        } catch {
+            // Revert on error
+            setOrders(prev);
+            Alert.alert('Error', 'Failed to update order status. Please try again.');
+        } finally {
+            setUpdatingId(null);
+        }
     };
 
     return (
@@ -421,7 +325,7 @@ export default function OwnerOrdersScreen() {
                                     borderColor: meta?.color ?? Colors.amber,
                                 },
                             ]}
-                            onPress={() => setActiveFilter(st as any)}
+                            onPress={() => setActiveFilter(st as OrderStatus | 'all')}
                         >
                             {meta && <Text style={{ fontSize: 12 }}>{meta.icon}</Text>}
                             <Text
@@ -452,27 +356,42 @@ export default function OwnerOrdersScreen() {
                 }}
             />
 
+            {/* ── Loading state ── */}
+            {isLoading && (
+                <View style={styles.loadingState}>
+                    <ActivityIndicator color={Colors.amber} size="large" />
+                </View>
+            )}
+
             {/* ── Order list ── */}
-            <FlatList
-                data={filtered}
-                keyExtractor={o => o._id}
-                contentContainerStyle={styles.list}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyEmoji}>📭</Text>
-                        <Text style={styles.emptyText}>No orders here</Text>
-                    </View>
-                }
-                renderItem={({ item }) => (
-                    <OrderCard order={item} onStatusChange={handleStatusChange} />
-                )}
-            />
+            {!isLoading && (
+                <FlatList
+                    data={filtered}
+                    // Fix 6: use helper to safely access _id
+                    keyExtractor={o => orderId(o)}
+                    contentContainerStyle={styles.list}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyEmoji}>📭</Text>
+                            <Text style={styles.emptyText}>No orders here</Text>
+                        </View>
+                    }
+                    renderItem={({ item }) => (
+                        <OrderCard
+                            order={item}
+                            onStatusChange={handleStatusChange}
+                            isUpdating={updatingId === orderId(item)}
+                        />
+                    )}
+                />
+            )}
         </View>
     );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
 
@@ -497,13 +416,13 @@ const styles = StyleSheet.create({
     liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.successGreen },
     liveText: { fontSize: 11, fontWeight: '800', color: Colors.successGreen },
 
-    filterTabs: { paddingHorizontal: 20, gap: 8, marginBottom: 12 },
+    filterTabs: { paddingHorizontal: 20, gap: 8, marginBottom: 12, height: 42 },
     filterTab: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
         paddingHorizontal: 12,
-        paddingVertical: 7,
+        paddingVertical: 4,
         borderRadius: Radius.full,
         backgroundColor: Colors.bgCard,
         borderWidth: 1.5,
@@ -522,6 +441,8 @@ const styles = StyleSheet.create({
     countText: { fontSize: 10, fontWeight: '800', color: Colors.textSecondary },
 
     list: { paddingHorizontal: 20, gap: 14, paddingBottom: 100 },
+
+    loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
     // Order card
     orderCard: {
@@ -547,7 +468,6 @@ const styles = StyleSheet.create({
     statusBadge: { borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
     statusText: { fontSize: 11, fontWeight: '700' },
 
-    // Meta strip
     metaStrip: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -567,7 +487,6 @@ const styles = StyleSheet.create({
         borderColor: Colors.border,
     },
 
-    // Items
     itemsList: {
         paddingHorizontal: 14,
         paddingVertical: 10,
@@ -593,7 +512,6 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
 
-    // Totals
     totalsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -612,7 +530,6 @@ const styles = StyleSheet.create({
     totalsFinalLabel: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
     totalsFinalValue: { fontSize: 16, fontWeight: '900', color: Colors.textPrimary },
 
-    // Payment badge
     paymentBadge: {
         marginHorizontal: 14,
         marginBottom: 12,
@@ -625,7 +542,6 @@ const styles = StyleSheet.create({
     paymentPending: { backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A' },
     paymentText: { fontSize: 12, fontWeight: '700', color: Colors.textPrimary },
 
-    // Action row
     actionRow: {
         flexDirection: 'row',
         gap: 10,
@@ -652,6 +568,7 @@ const styles = StyleSheet.create({
         ...Shadow.amber,
     },
     acceptBtnText: { fontSize: 13, fontWeight: '800', color: '#fff' },
+    btnDisabled: { opacity: 0.6 },
 
     rejectReason: {
         marginHorizontal: 14,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Platform,
     Switch,
+    ActivityIndicator,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { Restaurant } from '@/features/restaurant/types/Restaurant';
@@ -15,33 +16,7 @@ import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstab
 import { OwnerTabParamList } from '@/types/OwnerTabParamList';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const MOCK_RESTAURANT: Restaurant = {
-    owner: 'u1',
-    name: 'Highway Grill & Bar-B-Q',
-    description: 'Authentic highway-side grills and BBQ platters served fresh since 2019',
-    phone: '8800000005',
-    email: 'hgbbq@rodo.in',
-    address: { street: 'NH-46 Bypass, Near Toll', city: 'Sehore', state: 'MP', pincode: '466001' },
-    location: { type: 'Point', coordinates: [77.085, 23.201] },
-    foodType: 'non-veg',
-    cuisines: ['North Indian', 'BBQ', 'Mughlai'],
-    rating: 4.3,
-    totalRatings: 218,
-    isOpen: true,
-    isActive: true,
-    isVerified: true,
-    openingHours: { open: '10:00', close: '23:00' },
-    gstNumber: '23AABCH1234Q1ZX',
-    gstRate: 5,
-    avgPrepTimeMinutes: 18,
-    totalOrders: 1342,
-    totalEarnings: 284600,
-    routes: ['Bhopal–Sehore', 'Sehore–Ashta'],
-    createdAt: '2024-01-12T10:00:00Z',
-    updatedAt: '2025-04-01T08:00:00Z',
-};
+import { useOwnerRestaurant } from '@/features/dashboard/hooks/useOwnerRestaurant';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
@@ -109,18 +84,121 @@ function SectionCard({ title, children }: { title: string; children: React.React
     );
 }
 
-type ownerProfileProps = NativeBottomTabScreenProps<OwnerTabParamList, 'profile'>;
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+function SkeletonBlock({
+    width = '100%',
+    height = 16,
+    borderRadius = 8,
+    style,
+}: {
+    width?: string | number;
+    height?: number;
+    borderRadius?: number;
+    style?: object;
+}) {
+    return (
+        <View
+            style={[
+                {
+                    width: width as any,
+                    height,
+                    borderRadius,
+                    backgroundColor: Colors.border,
+                    opacity: 0.6,
+                },
+                style,
+            ]}
+        />
+    );
+}
+
+function ProfileSkeleton() {
+    return (
+        <ScrollView
+            style={styles.root}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+        >
+            {/* Hero */}
+            <View style={[styles.hero, { gap: 10 }]}>
+                <View style={styles.coverBg} />
+                <SkeletonBlock width={90} height={90} borderRadius={45} style={{ marginTop: 40 }} />
+                <SkeletonBlock width={180} height={20} />
+                <SkeletonBlock width={240} height={13} />
+                <SkeletonBlock width={100} height={28} borderRadius={Radius.full} />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[...Array(3)].map((_, i) => (
+                        <SkeletonBlock key={i} width={80} height={24} borderRadius={Radius.full} />
+                    ))}
+                </View>
+            </View>
+
+            {/* Stats bar */}
+            <SkeletonBlock height={60} borderRadius={Radius.lg} style={{ marginHorizontal: 20 }} />
+
+            {/* Section cards */}
+            {[80, 160, 70].map((h, i) => (
+                <View key={i} style={[styles.sectionCard, { padding: 16, gap: 10 }]}>
+                    <SkeletonBlock width={120} height={12} />
+                    <SkeletonBlock height={h} />
+                </View>
+            ))}
+        </ScrollView>
+    );
+}
+
+// ─── Error State ─────────────────────────────────────────────────────────────
+function ProfileError({ onRetry }: { onRetry: () => void }) {
+    return (
+        <View style={styles.centerState}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>⚠️</Text>
+            <Text style={styles.errorTitle}>Couldn't load profile</Text>
+            <Text style={styles.errorSub}>Check your connection and try again.</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
+                <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+        </View>
+    );
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
-    const {removeAuth, user} = useAuthStore();
-    const r = MOCK_RESTAURANT;
-    const o = user;
+type ownerProfileProps = NativeBottomTabScreenProps<OwnerTabParamList, 'profile'>;
+
+export default function OwnerProfileScreen({ navigation }: ownerProfileProps) {
+    const { removeAuth, user } = useAuthStore();
+    const { data: restaurant, isLoading, error, refetch } = useOwnerRestaurant();
+
+    // ✅ Typed as nullable — properly guarded before use
+    const [r, setR] = useState<Restaurant | null>(null);
 
     const [notifOrders, setNotifOrders] = useState(true);
     const [notifReviews, setNotifReviews] = useState(true);
     const [autoAccept, setAutoAccept] = useState(false);
 
-    const FOOD_TYPE_COLOR = {
+    useEffect(() => {
+        if (!isLoading && restaurant?.data) {
+            setR(restaurant.data?.restaurant ?? null);
+        }
+    }, [restaurant, isLoading]);
+
+    const handleLogOut = async () => {
+        await removeAuth();
+        navigation
+            .getParent<NativeStackNavigationProp<RootStackParamList>>()
+            .reset({ index: 0, routes: [{ name: 'login' }] });
+    };
+
+    // ── Loading ──
+    if (isLoading || (!r && !error)) return <ProfileSkeleton />;
+
+    // ── Error ──
+    if (error || !r) return <ProfileError onRetry={refetch} />;
+
+    // ✅ Safe to use r from here down
+    const o = user;
+
+    const FOOD_TYPE_COLOR: Record<string, string> = {
         veg: Colors.vegGreen,
         'non-veg': Colors.brandRed,
         both: Colors.amber,
@@ -133,14 +211,12 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
         year: 'numeric',
     });
 
-    const handleLogOut = async() =>{
-        await removeAuth();
+    const initials = r.name
+        .split(' ')
+        .slice(0, 2)
+        .map((w: string) => w[0])
+        .join('');
 
-        navigation.getParent<NativeStackNavigationProp<RootStackParamList>>().reset({
-            index: 0,
-            routes: [{name: 'login'}]
-        })
-    }
     return (
         <ScrollView
             style={styles.root}
@@ -149,22 +225,14 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
         >
             {/* ── Hero ── */}
             <View style={styles.hero}>
-                {/* Cover gradient */}
                 <View style={styles.coverBg}>
                     <View style={styles.coverCircle1} />
                     <View style={styles.coverCircle2} />
                 </View>
 
-                {/* Avatar */}
                 <View style={styles.avatarWrap}>
                     <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                            {r.name
-                                .split(' ')
-                                .slice(0, 2)
-                                .map(w => w[0])
-                                .join('')}
-                        </Text>
+                        <Text style={styles.avatarText}>{initials}</Text>
                     </View>
                     {r.isVerified && (
                         <View style={styles.verifiedBadge}>
@@ -178,7 +246,6 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
                     {r.description}
                 </Text>
 
-                {/* Food type chip */}
                 <View
                     style={[
                         styles.foodTypeChip,
@@ -191,7 +258,6 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
                     </Text>
                 </View>
 
-                {/* Cuisines */}
                 <View style={styles.cuisineRow}>
                     {r.cuisines?.map(c => (
                         <View key={c} style={styles.cuisineChip}>
@@ -214,25 +280,29 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{r.totalOrders.toLocaleString('en-IN')}</Text>
+                    <Text style={styles.statValue}>
+                        {r.totalOrders?.toLocaleString('en-IN') ?? '–'}
+                    </Text>
                     <Text style={styles.statLabel}>Orders</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                    <Text style={styles.statValue}>₹{(r.totalEarnings / 1000).toFixed(0)}K</Text>
+                    <Text style={styles.statValue}>
+                        ₹{r.totalEarnings != null ? (r.totalEarnings / 1000).toFixed(0) : '–'}K
+                    </Text>
                     <Text style={styles.statLabel}>Earnings</Text>
                 </View>
             </View>
 
             {/* ── Owner info ── */}
             <SectionCard title="👤 Owner">
-                <InfoRow icon="🙍" label="Name" value={o?.name || ''} />
-                <InfoRow icon="📞" label="Phone" value={`+91 ${o?.phone}`} />
-                <InfoRow icon="✉️" label="Email" value={o?.email ||''} />
+                <InfoRow icon="🙍" label="Name" value={o?.name ?? '–'} />
+                <InfoRow icon="📞" label="Phone" value={o?.phone ? `+91 ${o.phone}` : '–'} />
+                <InfoRow icon="✉️" label="Email" value={o?.email ?? '–'} />
                 <InfoRow
                     icon="🕐"
                     label="Last Login"
-                    value={new Date(o?.lastLogin || '').toLocaleString('en-IN')}
+                    value={o?.lastLogin ? new Date(o.lastLogin).toLocaleString('en-IN') : '–'}
                 />
             </SectionCard>
 
@@ -241,25 +311,38 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
                 <InfoRow
                     icon="📍"
                     label="Address"
-                    value={[r.address.street, r.address.city, r.address.state, r.address.pincode]
+                    value={[
+                        r.address?.street,
+                        r.address?.city,
+                        r.address?.state,
+                        r.address?.pincode,
+                    ]
                         .filter(Boolean)
                         .join(', ')}
                 />
-                <InfoRow icon="📞" label="Phone" value={`+91 ${r.phone}`} />
-                {r.email && <InfoRow icon="✉️" label="Email" value={r.email} />}
+                <InfoRow icon="📞" label="Phone" value={r.phone ? `+91 ${r.phone}` : '–'} />
+                {r.email ? <InfoRow icon="✉️" label="Email" value={r.email} /> : null}
                 <InfoRow
                     icon="🕐"
                     label="Opening Hours"
-                    value={`${r.openingHours.open} – ${r.openingHours.close}`}
+                    value={`${r.openingHours?.open ?? '–'} – ${r.openingHours?.close ?? '–'}`}
                 />
-                <InfoRow icon="⏱" label="Avg Prep Time" value={`${r.avgPrepTimeMinutes} minutes`} />
+                <InfoRow
+                    icon="⏱"
+                    label="Avg Prep Time"
+                    value={r.avgPrepTimeMinutes != null ? `${r.avgPrepTimeMinutes} minutes` : '–'}
+                />
                 <InfoRow icon="📅" label="Member Since" value={joinDate} />
             </SectionCard>
 
             {/* ── GST ── */}
             <SectionCard title="🧾 GST & Tax">
-                {r.gstNumber && <InfoRow icon="📋" label="GST Number" value={r.gstNumber} />}
-                <InfoRow icon="💰" label="GST Rate" value={`${r.gstRate}%`} />
+                {r.gstNumber ? <InfoRow icon="📋" label="GST Number" value={r.gstNumber} /> : null}
+                <InfoRow
+                    icon="💰"
+                    label="GST Rate"
+                    value={r.gstRate != null ? `${r.gstRate}%` : '–'}
+                />
             </SectionCard>
 
             {/* ── Routes ── */}
@@ -298,14 +381,14 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
 
             {/* ── Preferences ── */}
             <SectionCard title="⚙️ Preferences">
-                <SettingRow
+                {/* <SettingRow
                     icon="⚡"
                     label="Auto-Accept Orders"
                     sub="Automatically confirm incoming orders"
                     value={autoAccept}
                     onValueChange={setAutoAccept}
-                />
-                <View style={styles.settingDivider} />
+                /> */}
+                {/* <View style={styles.settingDivider} /> */}
                 <SettingRow icon="🖊" label="Edit Restaurant Info" onPress={() => {}} />
                 <View style={styles.settingDivider} />
                 <SettingRow icon="📸" label="Update Cover Photo" onPress={() => {}} />
@@ -335,7 +418,6 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
                 <SettingRow icon="🚪" label="Sign Out" onPress={handleLogOut} danger />
             </SectionCard>
 
-            {/* Version */}
             <Text style={styles.version}>Rodo Restaurant v1.0.0 · Built with ❤️</Text>
             <View style={{ height: 40 }} />
         </ScrollView>
@@ -346,6 +428,24 @@ export default function OwnerProfileScreen({navigation}: ownerProfileProps) {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     content: { paddingTop: Platform.OS === 'android' ? 28 : 60, gap: 16, paddingBottom: 20 },
+
+    // Center states
+    centerState: {
+        flex: 1,
+        backgroundColor: Colors.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+    },
+    errorTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 6 },
+    errorSub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginBottom: 20 },
+    retryBtn: {
+        backgroundColor: Colors.amber,
+        paddingHorizontal: 28,
+        paddingVertical: 12,
+        borderRadius: Radius.full,
+    },
+    retryBtnText: { fontSize: 14, fontWeight: '800', color: Colors.textOnAmber },
 
     // Hero
     hero: {

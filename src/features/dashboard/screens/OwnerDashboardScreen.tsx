@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Platform,
     Switch,
+    ActivityIndicator,
 } from 'react-native';
 import { Colors, Radius, Shadow, Fonts } from '@theme/index';
 import OrderRow from '../components/OrderRow';
@@ -14,26 +15,160 @@ import QuickAction from '../components/QuickAction';
 import StatCard from '../components/StatCard';
 import { useOwnerRestaurant } from '../hooks/useOwnerRestaurant';
 import { useMyOrders } from '../hooks/useMyOrders';
-import { useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEY } from '@/utils/queryKeys';
+import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstable';
+import { OwnerTabParamList } from '@/types/OwnerTabParamList';
+import { useRestaurantEarnings } from '../hooks/useRestaurantEarnings';
+import { useUpdateStatus } from '../hooks/useUpdateStatus';
 
-export default function OwnerDashboardScreen() {
-    const { data, isLoading, error } = useOwnerRestaurant();
-    const qc = useQueryClient();
-    console.log('Cached data:', qc.getQueryData([QUERY_KEY.OWNER_RESTAURANT]));
+type ownerDashboardProps = NativeBottomTabScreenProps<OwnerTabParamList, 'dashboard'>;
+
+// ─── Skeleton Block ───────────────────────────────────────────────────────────
+function SkeletonBlock({
+    width = '100%',
+    height = 16,
+    borderRadius = 8,
+    style,
+}: {
+    width?: string | number;
+    height?: number;
+    borderRadius?: number;
+    style?: object;
+}) {
+    return (
+        <View
+            style={[
+                {
+                    width: width as any,
+                    height,
+                    borderRadius,
+                    backgroundColor: Colors.border,
+                    opacity: 0.6,
+                },
+                style,
+            ]}
+        />
+    );
+}
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
+function DashboardSkeleton() {
+    return (
+        <ScrollView
+            style={styles.root}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+        >
+            {/* Header skeleton */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <SkeletonBlock width={46} height={46} borderRadius={23} />
+                    <View style={{ gap: 6 }}>
+                        <SkeletonBlock width={90} height={12} />
+                        <SkeletonBlock width={150} height={15} />
+                    </View>
+                </View>
+                <SkeletonBlock width={32} height={32} borderRadius={16} />
+            </View>
+
+            {/* Status banner skeleton */}
+            <SkeletonBlock height={74} borderRadius={Radius.lg} style={{ marginBottom: 24 }} />
+
+            {/* Section title */}
+            <SkeletonBlock width={140} height={16} style={{ marginBottom: 12 }} />
+
+            {/* Stats grid skeleton */}
+            <View style={styles.statsGrid}>
+                {[...Array(4)].map((_, i) => (
+                    <SkeletonBlock key={i} width={'47%'} height={80} borderRadius={Radius.lg} />
+                ))}
+            </View>
+
+            {/* All-time card skeleton */}
+            <SkeletonBlock height={74} borderRadius={Radius.lg} style={{ marginBottom: 24 }} />
+
+            {/* Quick actions skeleton */}
+            <SkeletonBlock width={140} height={16} style={{ marginBottom: 12 }} />
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
+                {[...Array(4)].map((_, i) => (
+                    <SkeletonBlock key={i} width={70} height={70} borderRadius={Radius.lg} />
+                ))}
+            </View>
+
+            {/* Recent orders skeleton */}
+            <SkeletonBlock width={140} height={16} style={{ marginBottom: 12 }} />
+            <View style={styles.ordersCard}>
+                {[...Array(3)].map((_, i) => (
+                    <React.Fragment key={i}>
+                        <View style={{ padding: 14, gap: 8 }}>
+                            <SkeletonBlock width={'60%'} height={13} />
+                            <SkeletonBlock width={'40%'} height={11} />
+                        </View>
+                        {i < 2 && <View style={styles.orderDivider} />}
+                    </React.Fragment>
+                ))}
+            </View>
+        </ScrollView>
+    );
+}
+
+// ─── Error State ──────────────────────────────────────────────────────────────
+function DashboardError({ onRetry }: { onRetry: () => void }) {
+    return (
+        <View style={styles.centerState}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>⚠️</Text>
+            <Text style={styles.errorTitle}>Couldn't load dashboard</Text>
+            <Text style={styles.errorSub}>Check your connection and try again.</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
+                <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+        </View>
+    );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+export default function OwnerDashboardScreen({ navigation }: ownerDashboardProps) {
+    const { data, isLoading, error, refetch } = useOwnerRestaurant();
     const { data: orders } = useMyOrders();
-    console.log('Owner restaurant data:', data);
-    const [isOpen, setIsOpen] = useState(data?.isOpen || false);
-    const r = data;
-    const recetOrders = orders?.slice(0, 5) || [];
+    const {data: earnings} = useRestaurantEarnings();
+    const {mutate: toggleStatus} = useUpdateStatus();
+    // ✅ Fix: don't initialise from data (it's undefined on mount)
+    const [isOpen, setIsOpen] = useState(false);
 
-    const todayOrders = 38;
-    const todayEarnings = 8_420;
-    const pendingCount = recetOrders.filter((o: any) => o.status === 'pending').length;
+    // ✅ Fix: sync toggle once data arrives
+    useEffect(() => {
+        if (data?.data?.restaurant?.isOpen !== undefined) {
+            setIsOpen(data.data.restaurant.isOpen);
+        }
+    }, [data?.data?.restaurant?.isOpen]);
+
+    // ── Loading ──
+    if (isLoading) return <DashboardSkeleton />;
+
+    // ── Error ──
+    if (error || !data) return <DashboardError onRetry={refetch} />;
+
+    // ── Safe to destructure ──
+    const r = data?.data?.restaurant;
+    const recentOrders = orders?.data?.slice(0, 5) ?? [];
+
+    const todayOrders = recentOrders.length; 
+    const todayEarnings = earnings?.data?.today?.total ?? 0;
+    const pendingCount = recentOrders.filter((o: any) => o.status === 'pending').length;
 
     function formatCurrency(n: number) {
         return `₹${n.toLocaleString('en-IN')}`;
     }
+
+    const handleToggleStatus = () => {
+        toggleStatus();
+        setIsOpen(prev => !prev);
+    }
+    const initials = r.name
+        .split(' ')
+        .slice(0, 2)
+        .map((w: string) => w[0])
+        .join('');
 
     return (
         <ScrollView
@@ -45,13 +180,7 @@ export default function OwnerDashboardScreen() {
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <View style={styles.avatarCircle}>
-                        <Text style={styles.avatarText}>
-                            {r.name
-                                .split(' ')
-                                .slice(0, 2)
-                                .map((w: any) => w[0])
-                                .join('')}
-                        </Text>
+                        <Text style={styles.avatarText}>{initials}</Text>
                     </View>
                     <View>
                         <Text style={styles.greeting}>Good morning 👋</Text>
@@ -79,13 +208,13 @@ export default function OwnerDashboardScreen() {
                     </Text>
                     <Text style={styles.statusBannerSub}>
                         {isOpen
-                            ? `Orders until ${r.openingHours.close}`
+                            ? `Orders until ${r.openingHours?.close ?? '--'}`
                             : 'Toggle to start accepting orders'}
                     </Text>
                 </View>
                 <Switch
                     value={isOpen}
-                    onValueChange={setIsOpen}
+                    onValueChange={handleToggleStatus}
                     trackColor={{ false: '#FECACA', true: '#86EFAC' }}
                     thumbColor={isOpen ? Colors.successGreen : '#EF4444'}
                 />
@@ -124,17 +253,23 @@ export default function OwnerDashboardScreen() {
             {/* ── All-time stats ── */}
             <View style={styles.allTimeCard}>
                 <View style={styles.allTimeStat}>
-                    <Text style={styles.allTimeValue}>{r.totalOrders.toLocaleString('en-IN')}</Text>
+                    <Text style={styles.allTimeValue}>
+                        {r.totalOrders?.toLocaleString('en-IN') ?? '–'}
+                    </Text>
                     <Text style={styles.allTimeLabel}>Total Orders</Text>
                 </View>
                 <View style={styles.allTimeDivider} />
                 <View style={styles.allTimeStat}>
-                    <Text style={styles.allTimeValue}>{formatCurrency(r.totalEarnings)}</Text>
+                    <Text style={styles.allTimeValue}>
+                        {r.totalEarnings != null ? formatCurrency(r.totalEarnings) : '–'}
+                    </Text>
                     <Text style={styles.allTimeLabel}>Total Earnings</Text>
                 </View>
                 <View style={styles.allTimeDivider} />
                 <View style={styles.allTimeStat}>
-                    <Text style={styles.allTimeValue}>{r.avgPrepTimeMinutes}m</Text>
+                    <Text style={styles.allTimeValue}>
+                        {r.avgPrepTimeMinutes != null ? `${r.avgPrepTimeMinutes}m` : '–'}
+                    </Text>
                     <Text style={styles.allTimeLabel}>Avg Prep Time</Text>
                 </View>
             </View>
@@ -155,20 +290,27 @@ export default function OwnerDashboardScreen() {
                     <Text style={styles.seeAll}>See all →</Text>
                 </TouchableOpacity>
             </View>
-            <View style={styles.ordersCard}>
-                {recetOrders.map((o: any, i: any) => (
-                    <React.Fragment key={o.orderNumber}>
-                        <OrderRow order={o} />
-                        {i < recetOrders.length - 1 && <View style={styles.orderDivider} />}
-                    </React.Fragment>
-                ))}
-            </View>
+
+            {recentOrders.length === 0 ? (
+                <View style={styles.emptyOrders}>
+                    <Text style={styles.emptyOrdersText}>🛒 No orders yet today</Text>
+                </View>
+            ) : (
+                <View style={styles.ordersCard}>
+                    {recentOrders.map((o: any, i: number) => (
+                        <React.Fragment key={o.orderNumber}>
+                            <OrderRow order={o} />
+                            {i < recentOrders.length - 1 && <View style={styles.orderDivider} />}
+                        </React.Fragment>
+                    ))}
+                </View>
+            )}
 
             {/* ── Restaurant info strip ── */}
             <View style={styles.infoStrip}>
-                <Text style={styles.infoChip}>📍 {r.address.city}</Text>
+                <Text style={styles.infoChip}>📍 {r.address?.city ?? '–'}</Text>
                 <Text style={styles.infoChip}>
-                    🕐 {r.openingHours.open}–{r.openingHours.close}
+                    🕐 {r.openingHours?.open ?? '–'}–{r.openingHours?.close ?? '–'}
                 </Text>
                 <Text style={styles.infoChip}>
                     {r.isVerified ? '✅ Verified' : '⚠️ Unverified'}
@@ -180,10 +322,28 @@ export default function OwnerDashboardScreen() {
     );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
     content: { paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 28 : 60 },
+
+    // Center states (loading fallback / error)
+    centerState: {
+        flex: 1,
+        backgroundColor: Colors.bg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+    },
+    errorTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 6 },
+    errorSub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginBottom: 20 },
+    retryBtn: {
+        backgroundColor: Colors.amber,
+        paddingHorizontal: 28,
+        paddingVertical: 12,
+        borderRadius: Radius.full,
+    },
+    retryBtnText: { fontSize: 14, fontWeight: '800', color: Colors.textOnAmber },
 
     // Header
     header: {
@@ -249,13 +409,9 @@ const styles = StyleSheet.create({
     seeAll: { fontSize: 13, color: Colors.amber, fontWeight: '700' },
 
     // Stats grid
-    statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        marginBottom: 14,
-    },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
 
+    // Orders
     ordersCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -266,7 +422,18 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     orderDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
+    emptyOrders: {
+        backgroundColor: Colors.bgCard,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 24,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    emptyOrdersText: { fontSize: 13, color: Colors.textMuted, fontWeight: '600' },
 
+    // Quick actions
     quickActions: { flexDirection: 'row', gap: 10, marginBottom: 24 },
 
     // All-time
@@ -284,6 +451,7 @@ const styles = StyleSheet.create({
     allTimeDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
     allTimeValue: { fontSize: 16, fontWeight: '900', color: Colors.textPrimary },
     allTimeLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', marginTop: 3 },
+
     // Info strip
     infoStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     infoChip: {

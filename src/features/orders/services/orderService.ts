@@ -106,3 +106,18 @@ export const updateOrderStatus = async(id: string, data: {
         throw error;
     }
 }
+
+export const getRestaurantOrder = async () => {
+    try{
+        console.log('Fetching restaurant orders.....');
+        const res = await privateClient.get('/orders/restaurant');
+
+        console.log('Fetched restaurant orders : ', res.data);
+        return res.data;
+
+    }catch(error){
+        console.error('Error while fetching restaurant orders : ', error);
+
+        throw error;
+    }
+}
