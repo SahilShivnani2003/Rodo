@@ -18,6 +18,8 @@ import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstab
 import { OwnerTabParamList } from '@/types/OwnerTabParamList';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import { useToggleMenuStatus } from '../hooks/useToggleMenuStatus';
+import useAlert from '@/hooks/useAlert';
 
 const FOOD_DOT: Record<string, string> = {
     veg: '#16A34A',
@@ -127,10 +129,11 @@ function MenuCard({
 type orderMenuProps = NativeBottomTabScreenProps<OwnerTabParamList, 'menu'>;
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function OwnerMenuScreen({ navigation }: orderMenuProps) {
+    const alert = useAlert();
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
     const { data: menuList, isLoading, refetch, isRefetching } = useGetOwnerResMenu();
-
+    const {mutate: toggleMenuAvailability} = useToggleMenuStatus();
     // ✅ Fix 1: typed as MenuItem[] array, not {}
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
 
@@ -162,6 +165,11 @@ export default function OwnerMenuScreen({ navigation }: orderMenuProps) {
 
     const toggleAvailability = (id: string | undefined, val: boolean) => {
         if (!id) return;
+        toggleMenuAvailability(id,{
+                onSuccess: () => {
+                    alert.success('Menu item updated', `Item is now marked as ${val ? 'available' : 'unavailable'}.`);
+                }
+        });
         setMenuItems(prev => prev.map(m => (m._id === id ? { ...m, isAvailable: val } : m)));
     };
 

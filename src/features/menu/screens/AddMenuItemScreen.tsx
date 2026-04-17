@@ -16,6 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import { useAddMenu } from '../hooks/useAddMenu';
 import { useUpdateMenu } from '../hooks/useUpdateMenu';
+import { useDeleteMenu } from '../hooks/useDeleteMenu';
 
 type RouteParams = { item?: MenuItem & { _id: string } };
 
@@ -96,6 +97,7 @@ export default function AddMenuItemScreen({ navigation }: AddMenuItemScreenProps
 
     const { mutate: addMenu } = useAddMenu();
     const { mutate: updateMenu } = useUpdateMenu();
+    const { mutate: deleteMenu } = useDeleteMenu();
     const [name, setName] = useState(existing?.name ?? '');
     const [description, setDescription] = useState(existing?.description ?? '');
     const [category, setCategory] = useState(existing?.category ?? '');
@@ -147,6 +149,15 @@ export default function AddMenuItemScreen({ navigation }: AddMenuItemScreenProps
         }
 
     };
+
+    const handleDelete = () => {
+        if (!existing?._id) return;
+        deleteMenu(existing._id, {
+            onSuccess: () => {
+                navigation.goBack();
+            },
+        });
+    }
 
     const discount =
         price && discountedPrice ? Math.round(((+price - +discountedPrice) / +price) * 100) : 0;
@@ -343,7 +354,7 @@ export default function AddMenuItemScreen({ navigation }: AddMenuItemScreenProps
                 </TouchableOpacity>
 
                 {isEdit && (
-                    <TouchableOpacity style={styles.deleteBtn}>
+                    <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
                         <Text style={styles.deleteBtnText}>🗑 Delete Item</Text>
                     </TouchableOpacity>
                 )}
