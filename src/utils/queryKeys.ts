@@ -7,4 +7,5 @@ export const QUERY_KEY = {
     OWNER_RESTAURANT: 'owner-restaurant',
     MY_ORDERS: 'my-orders',
     RESTAURANT_EARNINGS: 'restaurant-earnings',
+    OWNER_MENU_LIST: 'owner-menu-list',
 }

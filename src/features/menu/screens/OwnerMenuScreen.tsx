@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,133 +12,7 @@ import {
 import { Colors, Radius, Shadow } from '@theme/index';
 import { useNavigation } from '@react-navigation/native';
 import { MenuItem } from '../types/MenuItem';
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const MOCK_MENU: (MenuItem & { _id: string })[] = [
-    {
-        _id: 'm1',
-        restaurant: 'r1',
-        name: 'Chicken Tikka',
-        category: 'Starters',
-        description: 'Marinated chicken chunks grilled in tandoor',
-        price: 220,
-        discountedPrice: 199,
-        foodType: 'non-veg',
-        isAvailable: true,
-        isPopular: true,
-        preparationTime: 15,
-        tags: ['Bestseller', 'Spicy'],
-        sortOrder: 1,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm2',
-        restaurant: 'r1',
-        name: 'Veg Manchurian',
-        category: 'Starters',
-        description: 'Crispy veg balls in spicy manchurian sauce',
-        price: 160,
-        foodType: 'veg',
-        isAvailable: true,
-        isPopular: false,
-        preparationTime: 12,
-        tags: ['Veg'],
-        sortOrder: 2,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm3',
-        restaurant: 'r1',
-        name: 'Mutton Biryani',
-        category: 'Biryani',
-        description: 'Slow-cooked dum biryani with tender mutton',
-        price: 320,
-        foodType: 'non-veg',
-        isAvailable: true,
-        isPopular: true,
-        preparationTime: 30,
-        tags: ['Bestseller', 'Chef Special'],
-        sortOrder: 3,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm4',
-        restaurant: 'r1',
-        name: 'Veg Biryani',
-        category: 'Biryani',
-        description: 'Fragrant basmati with seasonal vegetables',
-        price: 200,
-        foodType: 'veg',
-        isAvailable: false,
-        isPopular: false,
-        preparationTime: 25,
-        sortOrder: 4,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm5',
-        restaurant: 'r1',
-        name: 'BBQ Platter',
-        category: 'Mains',
-        description: 'Mixed grill platter with chicken, seekh, paneer',
-        price: 550,
-        foodType: 'non-veg',
-        isAvailable: true,
-        isPopular: true,
-        preparationTime: 20,
-        tags: ['Bestseller'],
-        sortOrder: 5,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm6',
-        restaurant: 'r1',
-        name: 'Dal Tadka',
-        category: 'Mains',
-        description: 'Yellow lentils tempered with ghee and spices',
-        price: 150,
-        foodType: 'veg',
-        isAvailable: true,
-        isPopular: false,
-        preparationTime: 15,
-        sortOrder: 6,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm7',
-        restaurant: 'r1',
-        name: 'Butter Naan',
-        category: 'Breads',
-        price: 40,
-        foodType: 'veg',
-        isAvailable: true,
-        isPopular: false,
-        preparationTime: 8,
-        sortOrder: 7,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-    {
-        _id: 'm8',
-        restaurant: 'r1',
-        name: 'Cold Coffee',
-        category: 'Beverages',
-        price: 80,
-        foodType: 'veg',
-        isAvailable: true,
-        isPopular: false,
-        preparationTime: 5,
-        sortOrder: 8,
-        createdAt: '2024-03-01T00:00:00Z',
-        updatedAt: '2025-04-01T00:00:00Z',
-    },
-];
+import { useGetOwnerResMenu } from '../hooks/useGetOwnerResMenu';
 
 const FOOD_DOT: Record<string, string> = {
     veg: '#16A34A',
@@ -160,7 +34,7 @@ function MenuCard({
     onToggleAvailability,
     onPress,
 }: {
-    item: (typeof MOCK_MENU)[0];
+    item: MenuItem;
     onToggleAvailability: (id: string, val: boolean) => void;
     onPress: () => void;
 }) {
@@ -236,7 +110,7 @@ function MenuCard({
                 </Text>
                 <Switch
                     value={item.isAvailable}
-                    onValueChange={v => onToggleAvailability(item._id, v)}
+                    onValueChange={v => onToggleAvailability(item?._id, v)}
                     trackColor={{ false: '#FECACA', true: '#86EFAC' }}
                     thumbColor={item.isAvailable ? Colors.successGreen : '#EF4444'}
                 />
@@ -250,14 +124,26 @@ export default function OwnerMenuScreen() {
     const navigation = useNavigation<any>();
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
-    const [menuItems, setMenuItems] = useState(MOCK_MENU);
+    const { data: menuList, isLoading } = useGetOwnerResMenu();
 
+    // ✅ Fix 1: typed as MenuItem[] array, not {}
+    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+
+    // ✅ Fix 2: flatten menuByCategory Record into a single array when data loads
+    useEffect(() => {
+        const menuByCategory: Record<string, MenuItem[]> = menuList?.data?.menu ?? {};
+        const flat = Object.values(menuByCategory).flat();
+        setMenuItems(flat);
+    }, [menuList]);
+
+    // ✅ Fix 3: categories derived from menuItems, not the raw API record
     const categories = useMemo(() => {
-        const cats = Array.from(new Set(MOCK_MENU.map(m => m.category)));
-        return ['All', ...cats];
-    }, []);
+        const unique = Array.from(new Set(menuItems.map(m => m.category)));
+        return ['All', ...unique];
+    }, [menuItems]);
 
     const filtered = useMemo(() => {
+        // ✅ Fix 4: menuItems is now always an array — .filter is safe
         let list = menuItems;
         if (activeCategory !== 'All') list = list.filter(m => m.category === activeCategory);
         if (search.trim()) {
@@ -269,7 +155,8 @@ export default function OwnerMenuScreen() {
         return list;
     }, [menuItems, activeCategory, search]);
 
-    const toggleAvailability = (id: string, val: boolean) => {
+    const toggleAvailability = (id: string | undefined, val: boolean) => {
+        if (!id) return;
         setMenuItems(prev => prev.map(m => (m._id === id ? { ...m, isAvailable: val } : m)));
     };
 
@@ -312,45 +199,50 @@ export default function OwnerMenuScreen() {
             </View>
 
             {/* ── Category tabs ── */}
-            <FlatList
-                horizontal
-                data={categories}
-                keyExtractor={c => c}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.catTabs}
-                renderItem={({ item: cat }) => (
-                    <TouchableOpacity
-                        style={[styles.catTab, activeCategory === cat && styles.catTabActive]}
-                        onPress={() => setActiveCategory(cat)}
-                    >
-                        <Text
-                            style={[
-                                styles.catTabText,
-                                activeCategory === cat && styles.catTabTextActive,
-                            ]}
+            <View>
+                <FlatList
+                    horizontal
+                    data={categories}
+                    keyExtractor={c => c}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.catTabs}
+                    renderItem={({ item: cat }) => (
+                        <TouchableOpacity
+                            style={[styles.catTab, activeCategory === cat && styles.catTabActive]}
+                            onPress={() => setActiveCategory(cat)}
                         >
-                            {cat}
-                        </Text>
-                    </TouchableOpacity>
-                )}
-            />
+                            <Text
+                                style={[
+                                    styles.catTabText,
+                                    activeCategory === cat && styles.catTabTextActive,
+                                ]}
+                            >
+                                {cat}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            </View>
 
             {/* ── List ── */}
             <FlatList
                 data={filtered}
-                keyExtractor={m => m._id}
+                style={{ flex: 1 }}
+                keyExtractor={(m, index) => m._id ?? String(index)}
                 contentContainerStyle={styles.list}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Text style={styles.emptyEmoji}>🍽</Text>
-                        <Text style={styles.emptyText}>No items found</Text>
+                        <Text style={styles.emptyEmoji}>{isLoading ? '⏳' : '🍽'}</Text>
+                        <Text style={styles.emptyText}>
+                            {isLoading ? 'Loading menu…' : 'No items found'}
+                        </Text>
                     </View>
                 }
                 renderItem={({ item }) => (
                     <MenuCard
                         item={item}
-                        onToggleAvailability={toggleAvailability}
+                        onToggleAvailability={(id, val) => id && toggleAvailability(id, val)}
                         onPress={() => navigation.navigate('AddMenuItem', { item })}
                     />
                 )}
@@ -359,7 +251,7 @@ export default function OwnerMenuScreen() {
     );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ─── Styles ── (unchanged) ───────────────────────────────────────────────────
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
 
@@ -399,7 +291,7 @@ const styles = StyleSheet.create({
     searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: Colors.textPrimary },
     searchClear: { fontSize: 12, color: Colors.textMuted, padding: 4 },
 
-    catTabs: { paddingHorizontal: 20, gap: 8, marginBottom: 12 },
+    catTabs: { paddingHorizontal: 20, gap: 8, height: 32 },
     catTab: {
         paddingHorizontal: 16,
         paddingVertical: 7,
@@ -412,9 +304,8 @@ const styles = StyleSheet.create({
     catTabText: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
     catTabTextActive: { color: '#fff' },
 
-    list: { paddingHorizontal: 20, gap: 12, paddingBottom: 100 },
+    list: { padding: 20, gap: 14, flexGrow: 1, justifyContent: 'flex-start' },
 
-    // Menu card
     menuCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -474,7 +365,6 @@ const styles = StyleSheet.create({
     availLabel: { fontSize: 12, fontWeight: '700', color: Colors.successGreen },
     availLabelOff: { color: '#EF4444' },
 
-    // Food type dot
     foodDotOuter: {
         width: 14,
         height: 14,
@@ -485,7 +375,6 @@ const styles = StyleSheet.create({
     },
     foodDotInner: { width: 6, height: 6, borderRadius: 1.5 },
 
-    // Popular badge
     popularBadge: {
         backgroundColor: Colors.amberGlow,
         borderRadius: Radius.full,
@@ -494,7 +383,6 @@ const styles = StyleSheet.create({
     },
     popularText: { fontSize: 9, fontWeight: '700', color: Colors.textSecondary },
 
-    // Empty state
     emptyState: { alignItems: 'center', paddingTop: 60, gap: 10 },
     emptyEmoji: { fontSize: 44 },
     emptyText: { fontSize: 15, color: Colors.textMuted, fontWeight: '600' },
