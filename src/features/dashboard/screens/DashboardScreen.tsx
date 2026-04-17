@@ -306,7 +306,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 <View style={styles.heroLogoShine} />
                             </View>
                             <View>
-                                <Text style={styles.heroAppName}>Rodo</Text>
+                                <Text style={styles.heroAppName}>Rodofood</Text>
                                 <View style={styles.heroLocRow}>
                                     <View style={styles.heroLocDot} />
                                     <Text style={styles.heroLocText}>Sehore Highway</Text>

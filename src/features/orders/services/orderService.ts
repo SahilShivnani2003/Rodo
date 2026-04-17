@@ -72,50 +72,56 @@ export const getMyOrderDetail = async (id: string) => {
     }
 }
 
-export const getRestaurantEarnings = async()=>{
-    try{
+export const getRestaurantEarnings = async () => {
+    try {
         console.log('Fetching restaurant earnings ....');
-    
+
         const res = await privateClient.get('/orders/restaurant/earnings');
 
         console.log('Restaurant earnings : ', res.data);
 
         return res.data;
-    }catch(error){
+    } catch (error) {
         console.error('Errow while fetching earnings : ', error);
 
         throw error;
     }
 }
 
-export const updateOrderStatus = async(id: string, data: {
-    status: OrderStatus;
-    rejectionReason: string;
-}) =>{
-    try{
-        console.log('Updating order status.....');
+export type UpdateOrderStatusData =
+    | { status: OrderStatus; rejectionReason?: string }
+    | { status: Exclude<OrderStatus, 'rejected'> };
 
-        const res = await privateClient.patch(`/orders/restaurant/${id}/status`, data);
+export const updateOrderStatus = async (
+    id: string,
+    data: UpdateOrderStatusData
+) => {
+    try {
+        console.log('Updating order status.....', data);
+
+        const res = await privateClient.patch(
+            `/orders/restaurant/${id}/status`,
+            data
+        );
 
         console.log('Order status updated : ', res.data);
 
         return res.data;
-    }catch(error){
+    } catch (error) {
         console.error('Error while updating order status : ', error);
-
         throw error;
     }
-}
+};
 
 export const getRestaurantOrder = async () => {
-    try{
+    try {
         console.log('Fetching restaurant orders.....');
         const res = await privateClient.get('/orders/restaurant');
 
         console.log('Fetched restaurant orders : ', res.data);
         return res.data;
 
-    }catch(error){
+    } catch (error) {
         console.error('Error while fetching restaurant orders : ', error);
 
         throw error;

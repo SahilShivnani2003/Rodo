@@ -93,7 +93,7 @@ export default function MenuScreen({ navigation, route }: menuProps) {
     const { data: restaurantDetail } = useGetResById(restaurantId);
     const res = restaurantDetail?.data?.restaurant;
     const menuByCategory: Record<string, MenuItem[]> = data?.data?.menu ?? {};
-    const categories = useMemo(() => Object.keys(menuByCategory), [menuByCategory]);
+    const categories = useMemo(() => ['All', ...Object.keys(menuByCategory)], [menuByCategory]);
 
     // Build a flat id→item lookup for the cart hook
     const itemMap = useMemo<Record<string, MenuItem>>(
@@ -107,18 +107,23 @@ export default function MenuScreen({ navigation, route }: menuProps) {
         [menuByCategory],
     );
 
-    const [activeCategory, setActiveCategory] = useState<string>('');
+    const [activeCategory, setActiveCategory] = useState<string>('All');
     const [selectedETA, setSelectedETA] = useState('30 min');
     const [dineMode, setDineMode] = useState<'dine' | 'take'>('dine');
     const { add, remove, qty, total, count, getCartItems } = useCart(itemMap);
 
     React.useEffect(() => {
         if (categories.length && !activeCategory) {
-            setActiveCategory(categories[0]);
+            setActiveCategory('All');
         }
     }, [categories]);
 
-    const filteredItems: MenuItem[] = menuByCategory[activeCategory] ?? [];
+    const filteredItems: MenuItem[] = useMemo(() => {
+        if (activeCategory === 'All') {
+            return Object.values(menuByCategory).flat();
+        }
+        return menuByCategory[activeCategory] ?? [];
+    }, [activeCategory, menuByCategory]);
 
     return (
         <View style={styles.root}>

@@ -11,6 +11,7 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     Dimensions,
+    Image,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -162,7 +163,11 @@ export default function LoginScreen({ navigation }: loginProps) {
                         <View style={styles.heroBgCircle1} />
                         <View style={styles.heroBgCircle2} />
                         <View style={styles.heroCard}>
-                            <Text style={styles.heroCardEmoji}>🛣️</Text>
+                            <Image
+                                source={require('@assets/logo.jpeg')}
+                                style={styles.heroImage}
+                                resizeMode="contain"
+                            />
                         </View>
                     </View>
                 </View>
@@ -410,7 +415,11 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.5)',
     },
     heroCardEmoji: { fontSize: 42 },
-
+    heroImage:{
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+    },
     headerText: { marginBottom: 28 },
     title: {
         fontSize: 34,

@@ -6,6 +6,7 @@ import {
     getMyOrderDetail,
     getRestaurantEarnings,
     updateOrderStatus,
+    UpdateOrderStatusData,
 } from '../services/orderService';
 import { Order, OrderStatus } from '../types/Order';
 
@@ -84,7 +85,7 @@ export const useUpdateOrderStatus = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: { status: OrderStatus; rejectionReason: string } }) =>
+        mutationFn: ({ id, data }: { id: string; data: UpdateOrderStatusData }) =>
             updateOrderStatus(id, data),
         onSuccess: (_, { id }) => {
             // Invalidate both the list and the specific order

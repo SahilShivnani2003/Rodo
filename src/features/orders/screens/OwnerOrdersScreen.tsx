@@ -284,7 +284,10 @@ export default function OwnerOrdersScreen() {
         setOrders(p => p.map(o => (orderId(o) === id ? { ...o, status, rejectionReason } : o)));
         setUpdatingId(id);
         try {
-            await updateStatus({ id, data: { status, rejectionReason } });
+            await updateStatus({ id, data: {
+                 status,
+                ...(status === 'rejected' ? { rejectionReason } : {}),
+            } });
         } catch {
             // Revert on error
             setOrders(prev);

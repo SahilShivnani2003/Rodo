@@ -20,7 +20,7 @@ export type RootStackParamList = {
     };
     cart: {
         cartItems: CartItem[]
-    };
+    } | undefined;
     owner: NavigatorScreenParams<OwnerTabParamList>;
     coupons: undefined;
     addMenuItem: undefined;
