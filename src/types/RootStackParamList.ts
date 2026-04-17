@@ -23,5 +23,7 @@ export type RootStackParamList = {
     } | undefined;
     owner: NavigatorScreenParams<OwnerTabParamList>;
     coupons: undefined;
-    addMenuItem: undefined;
+    addMenuItem:{
+        item: MenuItem;
+    } | undefined;
 }; 

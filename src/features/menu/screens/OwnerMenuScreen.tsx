@@ -8,11 +8,16 @@ import {
     TextInput,
     Switch,
     Platform,
+    RefreshControl,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { useNavigation } from '@react-navigation/native';
 import { MenuItem } from '../types/MenuItem';
 import { useGetOwnerResMenu } from '../hooks/useGetOwnerResMenu';
+import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstable';
+import { OwnerTabParamList } from '@/types/OwnerTabParamList';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/types/RootStackParamList';
 
 const FOOD_DOT: Record<string, string> = {
     veg: '#16A34A',
@@ -119,12 +124,12 @@ function MenuCard({
     );
 }
 
+type orderMenuProps = NativeBottomTabScreenProps<OwnerTabParamList, 'menu'>;
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function OwnerMenuScreen() {
-    const navigation = useNavigation<any>();
+export default function OwnerMenuScreen({ navigation }: orderMenuProps) {
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
-    const { data: menuList, isLoading } = useGetOwnerResMenu();
+    const { data: menuList, isLoading, refetch, isRefetching } = useGetOwnerResMenu();
 
     // ✅ Fix 1: typed as MenuItem[] array, not {}
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -175,7 +180,11 @@ export default function OwnerMenuScreen() {
                 </View>
                 <TouchableOpacity
                     style={styles.addBtn}
-                    onPress={() => navigation.navigate('AddMenuItem')}
+                    onPress={() =>
+                        navigation
+                            .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                            .navigate('addMenuItem')
+                    }
                 >
                     <Text style={styles.addBtnText}>+ Add Item</Text>
                 </TouchableOpacity>
@@ -231,6 +240,14 @@ export default function OwnerMenuScreen() {
                 keyExtractor={(m, index) => m._id ?? String(index)}
                 contentContainerStyle={styles.list}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefetching}
+                        onRefresh={refetch}
+                        tintColor={Colors.amber}
+                        colors={[Colors.amber]}
+                    />
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
                         <Text style={styles.emptyEmoji}>{isLoading ? '⏳' : '🍽'}</Text>
@@ -243,7 +260,13 @@ export default function OwnerMenuScreen() {
                     <MenuCard
                         item={item}
                         onToggleAvailability={(id, val) => id && toggleAvailability(id, val)}
-                        onPress={() => navigation.navigate('AddMenuItem', { item })}
+                        onPress={() =>
+                            navigation
+                                .getParent<NativeStackNavigationProp<RootStackParamList>>()
+                                .navigate('addMenuItem', {
+                                    item: item,
+                                })
+                        }
                     />
                 )}
             />

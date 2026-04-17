@@ -11,7 +11,11 @@ import {
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { MenuItem, FoodType } from '../types/MenuItem';
+import { MenuItem, FoodType, CreateMenuItemDTO } from '../types/MenuItem';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/types/RootStackParamList';
+import { useAddMenu } from '../hooks/useAddMenu';
+import { useUpdateMenu } from '../hooks/useUpdateMenu';
 
 type RouteParams = { item?: MenuItem & { _id: string } };
 
@@ -83,13 +87,15 @@ function SectionCard({ title, children }: { title: string; children: React.React
     );
 }
 
+type AddMenuItemScreenProps = NativeStackScreenProps<RootStackParamList, 'addMenuItem'>;
 // ─── Screen ──────────────────────────────────────────────────────────────────
-export default function AddMenuItemScreen() {
-    const navigation = useNavigation<any>();
+export default function AddMenuItemScreen({ navigation }: AddMenuItemScreenProps) {
     const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
     const existing = route.params?.item;
     const isEdit = !!existing;
 
+    const { mutate: addMenu } = useAddMenu();
+    const { mutate: updateMenu } = useUpdateMenu();
     const [name, setName] = useState(existing?.name ?? '');
     const [description, setDescription] = useState(existing?.description ?? '');
     const [category, setCategory] = useState(existing?.category ?? '');
@@ -107,10 +113,39 @@ export default function AddMenuItemScreen() {
     const handleSave = () => {
         if (!isValid) return;
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            navigation.goBack();
-        }, 800);
+        const data: CreateMenuItemDTO = {
+            name: name.trim(),
+            description: description.trim(),
+            category: category,
+            price: +price,
+            discountedPrice: discountedPrice ? +discountedPrice : undefined,
+            foodType,
+            preparationTime: +prepTime,
+            tags: tags
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t),
+            isPopular,
+            isAvailable,
+        };
+
+        if (isEdit && existing?._id) {
+            updateMenu(
+                { id: existing._id, data },
+                {
+                    onSuccess: () => {
+                        navigation.goBack();
+                    },
+                }
+            );
+        } else {
+            addMenu(data, {
+                onSuccess: () => {
+                    navigation.goBack();
+                },
+            });
+        }
+
     };
 
     const discount =

@@ -1,5 +1,5 @@
 import { privateClient, publicClient } from "@/services/apiClient";
-import { MenuItem } from "../types/MenuItem";
+import { CreateMenuItemDTO, MenuItem } from "../types/MenuItem";
 
 export const getReaturantMenu = async (id: string) => {
     try {
@@ -31,7 +31,7 @@ export const getOwnerMenuList = async () => {
     }
 };
 
-export const createMenu = async (data: MenuItem) => {
+export const createMenu = async (data: CreateMenuItemDTO) => {
     try {
         console.log('Creating menu item ');
 
@@ -47,21 +47,25 @@ export const createMenu = async (data: MenuItem) => {
     }
 }
 
-export const updateMenu = async (id: string, data: MenuItem) => {
+type UpdateMenuPayload = {
+    id: string;
+    data: CreateMenuItemDTO;
+};
+
+export const updateMenu = async ({ id, data }: UpdateMenuPayload) => {
     try {
         console.log('Updating menu item ');
 
         const res = await privateClient.put(`/menu/${id}`, data);
 
-        console.log('Menu item updatd : ', res.data);
+        console.log('Menu item updated : ', res.data);
 
         return res.data;
     } catch (error) {
         console.error('Failed to update menu item ');
-
         throw error;
     }
-}
+};
 
 export const deleteMenu = async (id: string) => {
     try {
@@ -79,7 +83,7 @@ export const deleteMenu = async (id: string) => {
     }
 };
 
-export const toggleMenuStatu = async (id: string) => {
+export const toggleMenuStatus = async (id: string) => {
     try {
         console.log('Toggling menu status ...');
 
@@ -92,6 +96,6 @@ export const toggleMenuStatu = async (id: string) => {
         console.error('Error while updating menu status : ', error);
 
         throw error;
-        
+
     }
 }

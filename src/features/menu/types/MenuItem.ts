@@ -1,7 +1,7 @@
 export type FoodType = 'veg' | 'non-veg' | 'egg';
 
 export interface MenuItem {
-    _id:string;
+    _id: string;
     restaurant: string;
 
     name: string;
@@ -26,4 +26,21 @@ export interface MenuItem {
 
     createdAt: string;
     updatedAt: string;
+}
+
+export interface CreateMenuItemDTO {
+    name: string;
+    description: string;
+    category: string;
+
+    price: number;
+    discountedPrice?: number;
+    foodType: FoodType;
+
+    isAvailable: boolean;
+    isPopular: boolean;
+
+    preparationTime: number;
+    image?: string;
+    tags?: string[];
 }
