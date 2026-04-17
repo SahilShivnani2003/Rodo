@@ -10,6 +10,7 @@ import {
     StatusBar,
     Alert,
     ActivityIndicator,
+    Modal,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -156,6 +157,10 @@ export default function CartScreen({ navigation, route }: CartProps) {
 
     const { mutateAsync: placeOrder, isPending: isPlacingOrder } = useCreateOrder();
 
+    //ETA Variables
+    const [showCustomModal, setShowCustomModal] = useState(false);
+    const [customETA, setCustomETA] = useState('');
+    const [customEtaInput, setCustomEtaInput] = useState('');
     // ── Load cart on mount ────────────────────────────────────────────────────
     useEffect(() => {
         loadCart();
@@ -166,12 +171,15 @@ export default function CartScreen({ navigation, route }: CartProps) {
         if (!route?.params?.cartItems?.length) return;
         (async () => {
             const existing = await loadCartItems();
-            const incoming: CartItem[] = route.params.cartItems;
+            const incoming: CartItem[] | undefined = route?.params?.cartItems;
             const merged = [...existing];
-            for (const item of incoming) {
-                const idx = merged.findIndex(e => e._id === item._id);
-                if (idx !== -1) merged[idx] = { ...merged[idx], qty: merged[idx].qty + item.qty };
-                else merged.push(item);
+            if (incoming) {
+                for (const item of incoming) {
+                    const idx = merged.findIndex(e => e._id === item._id);
+                    if (idx !== -1)
+                        merged[idx] = { ...merged[idx], qty: merged[idx].qty + item.qty };
+                    else merged.push(item);
+                }
             }
             setItems(merged);
             await saveCartItems(merged);
@@ -280,7 +288,10 @@ export default function CartScreen({ navigation, route }: CartProps) {
             Custom: 60,
         };
 
-        const etaMinutes = etaMinutesMap[selectedETA] ?? 30;
+        const etaMinutes =
+            selectedETA === 'Custom'
+                ? parseInt(customETA, 10) || 60
+                : parseInt(selectedETA, 10) || 30;
 
         // customerETA must be ISO 8601 — compute actual arrival datetime
         const etaDate = new Date(Date.now() + etaMinutes * 60 * 1000).toISOString();
@@ -432,19 +443,29 @@ export default function CartScreen({ navigation, route }: CartProps) {
                 {/* ETA */}
                 <SectionHeader title="🕐 Arrival Time" sub="We'll prepare your food accordingly" />
                 <View style={styles.etaRow}>
-                    {ETA_OPTIONS.map(e => (
-                        <TouchableOpacity
-                            key={e}
-                            style={[styles.etaChip, selectedETA === e && styles.etaChipActive]}
-                            onPress={() => setSelectedETA(e)}
-                        >
-                            <Text
-                                style={[styles.etaText, selectedETA === e && styles.etaTextActive]}
+                    {ETA_OPTIONS.map(e => {
+                        const isCustom = e === 'Custom';
+                        const isActive = isCustom ? selectedETA === 'Custom' : selectedETA === e;
+                        const label = isCustom && customETA ? `${customETA} min` : e;
+                        return (
+                            <TouchableOpacity
+                                key={e}
+                                style={[styles.etaChip, isActive && styles.etaChipActive]}
+                                onPress={() => {
+                                    if (isCustom) {
+                                        setCustomEtaInput(customETA);
+                                        setShowCustomModal(true);
+                                    } else {
+                                        setSelectedETA(e);
+                                    }
+                                }}
                             >
-                                {e}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
+                                <Text style={[styles.etaText, isActive && styles.etaTextActive]}>
+                                    {label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
                 {/* Order type */}
@@ -585,6 +606,62 @@ export default function CartScreen({ navigation, route }: CartProps) {
                     )}
                 </TouchableOpacity>
             </View>
+
+            {/**Custom ETA Modal  */}
+            <Modal
+                visible={showCustomModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowCustomModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowCustomModal(false)}
+                >
+                    <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>⏱ Set Custom Time</Text>
+                        <Text style={styles.modalSub}>How many minutes until you arrive?</Text>
+
+                        <View style={styles.modalInputRow}>
+                            <TextInput
+                                style={styles.modalInput}
+                                placeholder="e.g. 20"
+                                placeholderTextColor={Colors.textMuted}
+                                keyboardType="numeric"
+                                value={customEtaInput}
+                                onChangeText={v => setCustomEtaInput(v.replace(/[^0-9]/g, ''))}
+                                maxLength={3}
+                                autoFocus
+                            />
+                            <Text style={styles.modalUnit}>min</Text>
+                        </View>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={styles.modalCancelBtn}
+                                onPress={() => setShowCustomModal(false)}
+                            >
+                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalConfirmBtn,
+                                    !customEtaInput && styles.modalConfirmBtnDisabled,
+                                ]}
+                                disabled={!customEtaInput}
+                                onPress={() => {
+                                    setCustomETA(customEtaInput);
+                                    setSelectedETA('Custom');
+                                    setShowCustomModal(false);
+                                }}
+                            >
+                                <Text style={styles.modalConfirmText}>Confirm</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -979,4 +1056,61 @@ const styles = StyleSheet.create({
     },
     checkoutBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
     checkoutBtnArrow: { fontSize: 18, color: '#fff', fontWeight: '700' },
+
+    //Custom ETA Modal Style
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalCard: {
+        backgroundColor: Colors.bgCard,
+        borderRadius: Radius.lg,
+        padding: 24,
+        width: '80%',
+        ...Shadow.card,
+    },
+    modalTitle: { fontSize: 17, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
+    modalSub: { fontSize: 13, color: Colors.textSecondary, marginBottom: 20 },
+    modalInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.bgElevated,
+        borderRadius: Radius.md,
+        borderWidth: 1.5,
+        borderColor: Colors.brandRed,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        gap: 8,
+        marginBottom: 20,
+    },
+    modalInput: {
+        flex: 1,
+        fontSize: 28,
+        fontWeight: '900',
+        color: Colors.textPrimary,
+        paddingVertical: 4,
+    },
+    modalUnit: { fontSize: 16, fontWeight: '600', color: Colors.textSecondary },
+    modalActions: { flexDirection: 'row', gap: 10 },
+    modalCancelBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: Radius.md,
+        alignItems: 'center',
+        backgroundColor: Colors.bgElevated,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    modalCancelText: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+    modalConfirmBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: Radius.md,
+        alignItems: 'center',
+        backgroundColor: Colors.brandRed,
+    },
+    modalConfirmBtnDisabled: { opacity: 0.4 },
+    modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

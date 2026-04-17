@@ -9,6 +9,8 @@ import {
     StatusBar,
     ActivityIndicator,
     Image,
+    Modal,
+    TextInput,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -95,6 +97,10 @@ export default function MenuScreen({ navigation, route }: menuProps) {
     const menuByCategory: Record<string, MenuItem[]> = data?.data?.menu ?? {};
     const categories = useMemo(() => ['All', ...Object.keys(menuByCategory)], [menuByCategory]);
 
+    // Add this state alongside the others
+    const [showCustomModal, setShowCustomModal] = useState(false);
+    const [customETA, setCustomETA] = useState('');
+    const [customEtaInput, setCustomEtaInput] = useState('');
     // Build a flat id→item lookup for the cart hook
     const itemMap = useMemo<Record<string, MenuItem>>(
         () =>
@@ -208,25 +214,36 @@ export default function MenuScreen({ navigation, route }: menuProps) {
                         <Text style={styles.etaTitle}>🕐 When will you arrive?</Text>
                         <Text style={styles.etaSub}>We'll have your food ready on time</Text>
                         <View style={styles.etaOptions}>
-                            {ETA_OPTIONS.map(e => (
-                                <TouchableOpacity
-                                    key={e}
-                                    style={[
-                                        styles.etaChip,
-                                        selectedETA === e && styles.etaChipActive,
-                                    ]}
-                                    onPress={() => setSelectedETA(e)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.etaChipText,
-                                            selectedETA === e && styles.etaChipTextActive,
-                                        ]}
+                            {ETA_OPTIONS.map(e => {
+                                const isCustom = e === 'Custom';
+                                const isActive = isCustom
+                                    ? selectedETA === 'Custom'
+                                    : selectedETA === e;
+                                const label = isCustom && customETA ? `${customETA} min` : e;
+                                return (
+                                    <TouchableOpacity
+                                        key={e}
+                                        style={[styles.etaChip, isActive && styles.etaChipActive]}
+                                        onPress={() => {
+                                            if (isCustom) {
+                                                setCustomEtaInput(customETA);
+                                                setShowCustomModal(true);
+                                            } else {
+                                                setSelectedETA(e);
+                                            }
+                                        }}
                                     >
-                                        {e}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                                        <Text
+                                            style={[
+                                                styles.etaChipText,
+                                                isActive && styles.etaChipTextActive,
+                                            ]}
+                                        >
+                                            {label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
                     </View>
                 </View>
@@ -417,6 +434,62 @@ export default function MenuScreen({ navigation, route }: menuProps) {
                     </View>
                 </TouchableOpacity>
             )}
+
+            {/**Custom ETA Modal */}
+            <Modal
+                visible={showCustomModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowCustomModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowCustomModal(false)}
+                >
+                    <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>⏱ Set Custom Time</Text>
+                        <Text style={styles.modalSub}>How many minutes until you arrive?</Text>
+
+                        <View style={styles.modalInputRow}>
+                            <TextInput
+                                style={styles.modalInput}
+                                placeholder="e.g. 20"
+                                placeholderTextColor={Colors.textMuted}
+                                keyboardType="numeric"
+                                value={customEtaInput}
+                                onChangeText={v => setCustomEtaInput(v.replace(/[^0-9]/g, ''))}
+                                maxLength={3}
+                                autoFocus
+                            />
+                            <Text style={styles.modalUnit}>min</Text>
+                        </View>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={styles.modalCancelBtn}
+                                onPress={() => setShowCustomModal(false)}
+                            >
+                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalConfirmBtn,
+                                    !customEtaInput && styles.modalConfirmBtnDisabled,
+                                ]}
+                                disabled={!customEtaInput}
+                                onPress={() => {
+                                    setCustomETA(customEtaInput);
+                                    setSelectedETA('Custom');
+                                    setShowCustomModal(false);
+                                }}
+                            >
+                                <Text style={styles.modalConfirmText}>Confirm</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -667,4 +740,87 @@ const styles = StyleSheet.create({
     cartBarRight: { alignItems: 'flex-end' },
     cartBarTotal: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
     cartBarAction: { fontSize: 11, color: '#FFFFFF', fontWeight: '600', opacity: 0.85 },
+
+    //Custom ETA Modal styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalCard: {
+        backgroundColor: Colors.bgCard,
+        borderRadius: Radius.lg,
+        padding: 24,
+        width: '80%',
+        ...Shadow.card,
+    },
+    modalTitle: {
+        fontSize: 17,
+        fontWeight: '800',
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    modalSub: {
+        fontSize: 13,
+        color: Colors.textSecondary,
+        marginBottom: 20,
+    },
+    modalInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.bgElevated,
+        borderRadius: Radius.md,
+        borderWidth: 1.5,
+        borderColor: Colors.brandRed,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        gap: 8,
+        marginBottom: 20,
+    },
+    modalInput: {
+        flex: 1,
+        fontSize: 28,
+        fontWeight: '900',
+        color: Colors.textPrimary,
+        paddingVertical: 4,
+    },
+    modalUnit: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textSecondary,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    modalCancelBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: Radius.md,
+        alignItems: 'center',
+        backgroundColor: Colors.bgElevated,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    modalCancelText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+    },
+    modalConfirmBtn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: Radius.md,
+        alignItems: 'center',
+        backgroundColor: Colors.brandRed,
+    },
+    modalConfirmBtnDisabled: {
+        opacity: 0.4,
+    },
+    modalConfirmText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#fff',
+    },
 });
