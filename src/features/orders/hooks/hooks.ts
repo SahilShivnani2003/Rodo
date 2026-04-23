@@ -7,6 +7,7 @@ import {
     getRestaurantEarnings,
     updateOrderStatus,
     UpdateOrderStatusData,
+    rateOrder,
 } from '../services/orderService';
 import { Order, OrderStatus } from '../types/Order';
 
@@ -95,3 +96,9 @@ export const useUpdateOrderStatus = () => {
         },
     });
 };
+
+export const useRateOrder = () =>{
+    return useMutation({
+        mutationFn: rateOrder,
+    })
+}

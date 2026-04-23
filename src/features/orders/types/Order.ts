@@ -42,6 +42,7 @@ export interface OrderRestaurant {
 }
 
 export interface Order {
+    _id?:string;
     orderNumber?: string;
 
     customer?: string; // optional — resolved server-side from auth token

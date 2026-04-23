@@ -16,6 +16,7 @@ import { queryClient } from '@/services/queryClient';
 import OwnerTabNavigator from './OwnerTabNavigator';
 import CouponsScreen from '@/features/coupons/screens/CouponsScreen';
 import AddMenuItemScreen from '@/features/menu/screens/AddMenuItemScreen';
+import OrderHistoryScreen from '@/features/orders/screens/OrderHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,7 +37,8 @@ export default function AppNavigator() {
                         <Stack.Screen name="cart" component={CartScreen} />
                         <Stack.Screen name="owner" component={OwnerTabNavigator} />
                         <Stack.Screen name="coupons" component={CouponsScreen} />
-                        <Stack.Screen name="addMenuItem" component={AddMenuItemScreen}/>
+                        <Stack.Screen name="addMenuItem" component={AddMenuItemScreen} />
+                        <Stack.Screen name="orderHistory" component={OrderHistoryScreen} />
                     </Stack.Navigator>
                 </NavigationContainer>
             </AlertProvider>

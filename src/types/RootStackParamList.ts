@@ -26,4 +26,5 @@ export type RootStackParamList = {
     addMenuItem:{
         item: MenuItem;
     } | undefined;
+    orderHistory: undefined;
 }; 

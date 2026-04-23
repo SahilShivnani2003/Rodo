@@ -127,3 +127,21 @@ export const getRestaurantOrder = async () => {
         throw error;
     }
 }
+export interface ratingData {
+    id: string;
+    data: {stars: string, comment: string}
+}
+export const rateOrder = async(rating: ratingData) =>{
+    try{
+        console.log('Rating the order....');
+
+        const response = await privateClient.post(`/orders/my/${rating.id}/rate`, rating.data)
+
+        console.log('Rating response : ',response.data);
+
+        return response.data;
+    }catch(error){
+        console.error('Error while giving a rating : ',error);
+        throw error;
+    }
+}
