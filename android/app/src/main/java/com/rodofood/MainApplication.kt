@@ -1,4 +1,4 @@
-package com.rodo
+package com.rodofood
 
 import android.app.Application
 import com.facebook.react.PackageList

@@ -1,4 +1,4 @@
-package com.rodo
+package com.rodofood
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

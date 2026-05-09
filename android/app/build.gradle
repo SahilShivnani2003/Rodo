@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.rodo"
+    namespace "com.rodofood"
     defaultConfig {
-        applicationId "com.rodo"
+        applicationId "com.rodofood"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -92,15 +92,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+        if (project.hasProperty('RODOFOOD_UPLOAD_STORE_FILE')) {
+            storeFile file(RODOFOOD_UPLOAD_STORE_FILE)
+            storePassword RODOFOOD_UPLOAD_STORE_PASSWORD
+            keyAlias RODOFOOD_UPLOAD_KEY_ALIAS
+            keyPassword RODOFOOD_UPLOAD_KEY_PASSWORD
+        }
+    }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
