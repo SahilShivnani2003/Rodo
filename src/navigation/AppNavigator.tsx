@@ -17,6 +17,7 @@ import OwnerTabNavigator from './OwnerTabNavigator';
 import CouponsScreen from '@/features/coupons/screens/CouponsScreen';
 import AddMenuItemScreen from '@/features/menu/screens/AddMenuItemScreen';
 import OrderHistoryScreen from '@/features/orders/screens/OrderHistoryScreen';
+import LoginWithPasswordScreen from '@/features/auth/screens/LoginWithPasswordScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -28,7 +29,7 @@ export default function AppNavigator() {
                     <Stack.Navigator screenOptions={{ headerShown: false }}>
                         <Stack.Screen name="splash" component={SplashScreen} />
                         <Stack.Screen name="welcome" component={WelcomeScreen} />
-                        <Stack.Screen name="login" component={LoginScreen} />
+                        <Stack.Screen name="login" component={LoginWithPasswordScreen} />
                         <Stack.Screen name="register" component={RegisterScreen} />
                         <Stack.Screen name="loginSuccess" component={LoginSuccessScreen} />
                         <Stack.Screen name="otpLogin" component={OTPScreen} />
