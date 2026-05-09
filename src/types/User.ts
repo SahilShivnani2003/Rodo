@@ -5,6 +5,7 @@ export interface User {
   name?: string;
   phone: string;
   email?: string;
+  password?: string;
 
   role: UserRole;
   isActive?: boolean;
@@ -16,6 +17,11 @@ export interface User {
   otp?: string;
   otpExpiry?: string;
   otpAttempts: number;
+
+
+  isEmailVerified?: boolean;
+  emailOtp?: string;
+  emailOtpExpiry?: Date;
 
   createdAt: string;
   updatedAt: string;

@@ -2,7 +2,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { ApiError } from '@/types/ApiError';
 import axios from 'axios';
 
-const BASE_URL = 'https://rodofood.onrender.com/api/v1';
+//const BASE_URL = 'https://rodofood.onrender.com/api/v1';
+const BASE_URL = 'https://api.rodofood.com/api/v1';
 
 //Public client for public routes
 export const publicClient = axios.create({
