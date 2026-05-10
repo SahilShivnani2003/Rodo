@@ -361,7 +361,7 @@ export default function OwnerProfileScreen({ navigation }: ownerProfileProps) {
             )}
 
             {/* ── Notifications ── */}
-            <SectionCard title="🔔 Notifications">
+            {/* <SectionCard title="🔔 Notifications">
                 <SettingRow
                     icon="🧾"
                     label="New Orders"
@@ -377,7 +377,7 @@ export default function OwnerProfileScreen({ navigation }: ownerProfileProps) {
                     value={notifReviews}
                     onValueChange={setNotifReviews}
                 />
-            </SectionCard>
+            </SectionCard> */}
 
             {/* ── Preferences ── */}
             <SectionCard title="⚙️ Preferences">
@@ -393,7 +393,7 @@ export default function OwnerProfileScreen({ navigation }: ownerProfileProps) {
                 <View style={styles.settingDivider} />
                 <SettingRow icon="📸" label="Update Cover Photo" onPress={() => {}} />
                 <View style={styles.settingDivider} />
-                <SettingRow icon="🔑" label="Change Phone Number" onPress={() => {}} />
+                <SettingRow icon="🔑" label="Change Password" onPress={() => {}} />
             </SectionCard>
 
             {/* ── Support ── */}
@@ -407,13 +407,13 @@ export default function OwnerProfileScreen({ navigation }: ownerProfileProps) {
 
             {/* ── Danger ── */}
             <SectionCard title="⚠️ Account">
-                <SettingRow
+                {/* <SettingRow
                     icon="🚫"
                     label="Deactivate Restaurant"
                     sub="Temporarily pause all orders"
                     onPress={() => {}}
                     danger
-                />
+                /> */}
                 <View style={styles.settingDivider} />
                 <SettingRow icon="🚪" label="Sign Out" onPress={handleLogOut} danger />
             </SectionCard>

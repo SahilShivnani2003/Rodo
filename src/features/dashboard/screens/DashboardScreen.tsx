@@ -22,6 +22,7 @@ import { useRestaurants } from '../hooks/useRestaurant';
 import { useRoutes } from '../hooks/useRoutes';
 import { Restaurant } from '@/features/restaurant/types/Restaurant';
 import { Route } from '@/features/restaurant/types/Route';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const { width } = Dimensions.get('window');
 
@@ -141,6 +142,7 @@ function PressCard({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }: homeProps) {
+    const user = useAuthStore().user;
     // ── Data fetching ──────────────────────────────────────────────────────────
     const { data: routesData, isLoading: routesLoading } = useRoutes();
     const routes: Route[] = routesData?.data?.routes ?? [];
@@ -395,7 +397,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
 
                     {/* Greeting */}
                     <View style={styles.heroGreetingBlock}>
-                        <Text style={styles.heroGreeting}>Hey Rahul! 👋</Text>
+                        <Text style={styles.heroGreeting}>{`Hey ${user?.name}! 👋`}</Text>
                         <Text style={styles.heroSub}>
                             Pre-order highway food so it's ready{'\n'}When you arrive. No waiting,
                             just eating!
