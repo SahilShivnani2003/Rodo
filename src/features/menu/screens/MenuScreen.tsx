@@ -20,7 +20,7 @@ import { MenuItem } from '../types/MenuItem';
 import { CartItem } from '@/features/cart/services/cartService';
 import { useGetResById } from '../hooks/useGetResById';
 
-const ETA_OPTIONS = ['30 min', '45 min', '60 min', 'Custom'];
+const ETA_OPTIONS = ['30 min', '45 min',  'Custom'];
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
