@@ -129,7 +129,6 @@ export default function OTPScreen({ navigation, route }: otpProps) {
             style={styles.root}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
 
             {/* Back */}
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>

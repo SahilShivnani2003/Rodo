@@ -229,7 +229,6 @@ export function ProfileScreen({ navigation }: ProfileProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}

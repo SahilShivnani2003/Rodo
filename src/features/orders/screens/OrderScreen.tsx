@@ -162,7 +162,6 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             {/* Header */}
             <View style={styles.header}>

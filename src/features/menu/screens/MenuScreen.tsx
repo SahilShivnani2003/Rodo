@@ -133,7 +133,6 @@ export default function MenuScreen({ navigation, route }: menuProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
                 <Text style={styles.backIcon}>←</Text>

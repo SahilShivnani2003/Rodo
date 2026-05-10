@@ -355,8 +355,6 @@ export default function DashboardScreen({ navigation }: homeProps) {
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.brandRed} />
-
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 120 }}

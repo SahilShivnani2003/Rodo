@@ -134,7 +134,6 @@ export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
 
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
 
             <View style={styles.center}>
                 {/* Ring 2 (outermost) */}

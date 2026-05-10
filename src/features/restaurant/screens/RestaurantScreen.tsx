@@ -537,7 +537,6 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             {/* ── Top bar ─────────────────────────────────────────────────────── */}
             <View style={styles.topBar}>
