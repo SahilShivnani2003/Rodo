@@ -2,6 +2,7 @@ export const QUERY_KEY = {
     PROFILE: 'profile',
     MENU: 'menu',
     ROUTE: 'route',
+    ROUTEBYID: 'routeById',
     RESTAURANT: 'restaurant',
     RESTAURANT_DETAIL: 'restaurant-detail',
     OWNER_RESTAURANT: 'owner-restaurant',

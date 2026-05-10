@@ -15,6 +15,11 @@ import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import useAlert from '@/hooks/useAlert';
+import { useCustomerLogin } from '../hooks/useCustomerAuth';
+import { useRestaurantLogin } from '../hooks/useRestaurantAuth';
+import { ApiError } from '@/types/ApiError';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useOwnerRestaurant } from '@/features/dashboard/hooks/useOwnerRestaurant';
 
 // ─── Role Types ───────────────────────────────────────────────────────────────
 type Role = 'customer' | 'restaurant';
@@ -23,13 +28,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'login'>;
 
 export default function LoginWithPasswordScreen({ navigation }: Props) {
     const alert = useAlert();
-
+    const { setAuth } = useAuthStore();
     // Form state
     const [role, setRole] = useState<Role>('customer');
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const { mutate: customerLogin } = useCustomerLogin();
+    const { mutate: restaurantLogin } = useRestaurantLogin();
 
     // UI state
     const [phoneFocused, setPhoneFocused] = useState(false);
@@ -80,14 +88,37 @@ export default function LoginWithPasswordScreen({ navigation }: Props) {
 
         setLoading(true);
 
-        // ── TODO: Replace this block with your API call ──────────────────────
-        setTimeout(() => {
-           
-            setLoading(false);
+        const data = {
+            phone: phone,
+            password: password,
+        };
 
-            
-        }, 900);
-        // ─────────────────────────────────────────────────────────────────────
+        if (role === 'customer') {
+            customerLogin(data, {
+                onSuccess: data => {
+                    setLoading(false);
+                    setAuth(data?.data?.user, data?.data?.token);
+                    alert.success('Success', 'Login successfull');
+                    navigation.replace('loginSuccess');
+                },
+                onError: (error: ApiError) => {
+                    setLoading(false);
+                    alert.error('Login failed', error.message || 'Something went wrong');
+                },
+            });
+        } else if (role === 'restaurant') {
+            restaurantLogin(data, {
+                onSuccess: data => {
+                    setLoading(false);
+                    setAuth(data?.data?.user, data?.data?.token);
+                    navigation.replace('loginSuccess');
+                },
+                onError: (error: ApiError) => {
+                    setLoading(false);
+                    alert.error('Login failed', error.message || 'Something went wrong');
+                },
+            });
+        }
     };
 
     const handleGooglePress = () => {

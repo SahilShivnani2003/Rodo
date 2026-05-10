@@ -12,11 +12,13 @@ import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useOwnerRestaurant } from '@/features/dashboard/hooks/useOwnerRestaurant';
 
 type loginSuccessProps = NativeStackScreenProps<RootStackParamList, 'loginSuccess'>;
 
 export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
     const { user } = useAuthStore();
+    const { data: ownerRestaurant } = useOwnerRestaurant();
     const checkScale = useRef(new Animated.Value(0)).current;
     const checkOpacity = useRef(new Animated.Value(0)).current;
     const ring1Scale = useRef(new Animated.Value(0.5)).current;
@@ -30,6 +32,22 @@ export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
     const confetti1 = useRef(new Animated.Value(0)).current;
     const confetti2 = useRef(new Animated.Value(0)).current;
     const confetti3 = useRef(new Animated.Value(0)).current;
+
+    const handleNavigation = () => {
+        if (user?.role === 'customer') {
+            navigation.replace('main', {
+                screen: 'home',
+            });
+        } else {
+            if (ownerRestaurant?.success) {
+                navigation.replace('owner', {
+                    screen: 'dashboard',
+                });
+            } else {
+                navigation.replace('createRestaurant');
+            }
+        }
+    };
 
     useEffect(() => {
         Animated.sequence([
@@ -212,17 +230,7 @@ export default function LoginSuccessScreen({ navigation }: loginSuccessProps) {
             >
                 <TouchableOpacity
                     style={styles.startBtn}
-                    onPress={() => {
-                        if (user?.role === 'customer') {
-                            navigation.replace('main', {
-                                screen: 'home',
-                            });
-                        } else {
-                            navigation.replace('owner', {
-                                screen: 'dashboard',
-                            });
-                        }
-                    }}
+                    onPress={handleNavigation}
                     activeOpacity={0.85}
                 >
                     <Text style={styles.startBtnText}>Start Exploring 🛣️</Text>

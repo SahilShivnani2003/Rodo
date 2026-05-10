@@ -18,6 +18,8 @@ import CouponsScreen from '@/features/coupons/screens/CouponsScreen';
 import AddMenuItemScreen from '@/features/menu/screens/AddMenuItemScreen';
 import OrderHistoryScreen from '@/features/orders/screens/OrderHistoryScreen';
 import LoginWithPasswordScreen from '@/features/auth/screens/LoginWithPasswordScreen';
+import EmailOtpScreen from '@/features/auth/screens/EmailOtpScreen';
+import CreateRestaurantScreen from '@/features/restaurant/screens/CreateRestaurantScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -33,6 +35,7 @@ export default function AppNavigator() {
                         <Stack.Screen name="register" component={RegisterScreen} />
                         <Stack.Screen name="loginSuccess" component={LoginSuccessScreen} />
                         <Stack.Screen name="otpLogin" component={OTPScreen} />
+                        <Stack.Screen name="emailOtpVerify" component={EmailOtpScreen} />
                         <Stack.Screen name="main" component={TabNavigator} />
                         <Stack.Screen name="menu" component={MenuScreen} />
                         <Stack.Screen name="cart" component={CartScreen} />
@@ -40,6 +43,7 @@ export default function AppNavigator() {
                         <Stack.Screen name="coupons" component={CouponsScreen} />
                         <Stack.Screen name="addMenuItem" component={AddMenuItemScreen} />
                         <Stack.Screen name="orderHistory" component={OrderHistoryScreen} />
+                        <Stack.Screen name="createRestaurant" component={CreateRestaurantScreen}/>
                     </Stack.Navigator>
                 </NavigationContainer>
             </AlertProvider>

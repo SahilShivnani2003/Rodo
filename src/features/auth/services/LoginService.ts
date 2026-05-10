@@ -82,7 +82,7 @@ export const verifyCustomerEmail = async (data: { email: string, otp: string }) 
     }
 }
 
-export const resentCustomerEmailOtp = async (email: string) => {
+export const resendCustomerEmailOtp = async (email: string) => {
     try {
         console.log('Resending customer email otp ....')
 

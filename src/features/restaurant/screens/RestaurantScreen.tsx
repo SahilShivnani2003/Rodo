@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -10,18 +10,49 @@ import {
     TextInput,
     ActivityIndicator,
     Image,
+    PermissionsAndroid,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import { Colors, Radius, Shadow } from '../../../theme/index';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import { MainTabParamList } from '@/types/MainTabParamList';
 import { Restaurant } from '../types/Restaurant';
+import { Route, Waypoint } from '../types/Route';
 import { useRestaurants } from '@/features/dashboard/hooks/useRestaurant';
-import { useRoutes } from '@/features/dashboard/hooks/useRoutes';
+import { useRouteById } from '@/features/dashboard/hooks/useRoutes';
 
 const FILTERS = ['All', 'Veg', 'Non-Veg', 'Open Now', 'Top Rated'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Geo Helpers ──────────────────────────────────────────────────────────────
+
+/** Haversine distance in km between two lat/lng points */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Index of the waypoint nearest to the given GPS position */
+function nearestWaypointIdx(waypoints: Waypoint[], lat: number, lng: number): number {
+    let minDist = Infinity;
+    let bestIdx = 0;
+    waypoints.forEach((wp, i) => {
+        const d = haversineKm(lat, lng, wp.coordinates.lat, wp.coordinates.lng);
+        if (d < minDist) {
+            minDist = d;
+            bestIdx = i;
+        }
+    });
+    return bestIdx;
+}
+
+// ─── Restaurant Helpers ───────────────────────────────────────────────────────
 
 const getCuisine = (r: Restaurant): string => {
     const parts: string[] = [];
@@ -36,30 +67,117 @@ const getEta = (r: Restaurant): string =>
 
 // ─── Route Progress Bar ───────────────────────────────────────────────────────
 
-const RouteProgressBar = ({
-    from,
-    to,
-    totalKm,
-}: {
-    from: string;
-    to: string;
+interface RouteProgressBarProps {
+    fromCity: string;
+    toCity: string;
     totalKm?: number;
-}) => (
-    <View style={styles.routeBar}>
-        <View style={styles.routeBarTrack}>
-            <View style={styles.routeBarFill} />
-            <View style={[styles.routeMarker, { left: '28%' as any }]}>
-                <View style={styles.routeMarkerPulse} />
-                <View style={styles.routeMarkerCore} />
+    waypoints: Waypoint[];
+    userProgress: number; // 0–1
+    nearestWaypointName?: string;
+    locationLoading: boolean;
+}
+
+const RouteProgressBar = ({
+    fromCity,
+    toCity,
+    totalKm,
+    waypoints,
+    userProgress,
+    nearestWaypointName,
+    locationLoading,
+}: RouteProgressBarProps) => {
+    const pct = `${Math.min(100, Math.round(userProgress * 100))}%` as `${number}%`;
+
+    return (
+        <View style={styles.routeBar}>
+            {/* ── Track ──────────────────────────────────────────────────────── */}
+            <View style={styles.routeBarTrack}>
+                {/* Filled portion */}
+                <View style={[styles.routeBarFill, { width: pct }]} />
+
+                {/* Waypoint dots at proportional positions */}
+                {waypoints.map((wp, i) => {
+                    const pos = waypoints.length > 1 ? i / (waypoints.length - 1) : 0;
+                    const passed = pos <= userProgress;
+                    return (
+                        <View
+                            key={wp._id ?? wp.name}
+                            style={[
+                                styles.waypointDot,
+                                { left: `${pos * 100}%` as any },
+                                passed && styles.waypointDotPassed,
+                            ]}
+                        />
+                    );
+                })}
+
+                {/* User marker (or loading spinner) */}
+                {locationLoading ? (
+                    <View style={[styles.routeMarker, { left: '0%' as any }]}>
+                        <ActivityIndicator size="small" color={Colors.brandRed} />
+                    </View>
+                ) : (
+                    <View style={[styles.routeMarker, { left: pct as any }]}>
+                        <View style={styles.routeMarkerPulse} />
+                        <View style={styles.routeMarkerCore} />
+                    </View>
+                )}
             </View>
+
+            {/* ── City labels ───────────────────────────────────────────────── */}
+            <View style={styles.routeLabels}>
+                <Text style={styles.routeEndLabel}>{fromCity}</Text>
+                {totalKm ? <Text style={styles.routeDistLabel}>{totalKm} km total</Text> : null}
+                <Text style={styles.routeEndLabel}>{toCity}</Text>
+            </View>
+
+            {/* ── Waypoint chips ────────────────────────────────────────────── */}
+            {waypoints.length > 0 && (
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginTop: 10 }}
+                    contentContainerStyle={{ gap: 6 }}
+                >
+                    {waypoints.map((wp, i) => {
+                        const pos = waypoints.length > 1 ? i / (waypoints.length - 1) : 0;
+                        const isPassed = pos < userProgress;
+                        const isCurrent = wp.name === nearestWaypointName;
+                        const isFirst = i === 0;
+                        const isLast = i === waypoints.length - 1;
+                        return (
+                            <View
+                                key={wp._id ?? wp.name}
+                                style={[
+                                    styles.waypointChip,
+                                    isPassed && styles.waypointChipPassed,
+                                    isCurrent && styles.waypointChipCurrent,
+                                ]}
+                            >
+                                <Text
+                                    style={[
+                                        styles.waypointChipText,
+                                        isCurrent && styles.waypointChipTextCurrent,
+                                    ]}
+                                >
+                                    {isFirst ? '🟢' : isLast ? '🔴' : '◉'} {wp.name}
+                                </Text>
+                            </View>
+                        );
+                    })}
+                </ScrollView>
+            )}
+
+            {/* ── Nearest waypoint callout ──────────────────────────────────── */}
+            {nearestWaypointName && !locationLoading && (
+                <Text style={styles.nearestText}>
+                    📍 You're near{' '}
+                    <Text style={styles.nearestHighlight}>{nearestWaypointName}</Text>
+                </Text>
+            )}
         </View>
-        <View style={styles.routeLabels}>
-            <Text style={styles.routeEndLabel}>{from}</Text>
-            {totalKm ? <Text style={styles.routeDistLabel}>{totalKm} km total</Text> : null}
-            <Text style={styles.routeEndLabel}>{to}</Text>
-        </View>
-    </View>
-);
+    );
+};
 
 // ─── Search Bar ───────────────────────────────────────────────────────────────
 
@@ -124,24 +242,106 @@ function NoResults({ query }: { query: string }) {
 
 type restaurantProps = NativeStackScreenProps<MainTabParamList, 'restaurants'>;
 
-export default function RestaurantListScreen({ navigation }: restaurantProps) {
-    const { data: routesData, isLoading: routesLoading } = useRoutes();
-    const routes = routesData?.data?.routes ?? [];
-    const firstRoute = routes[0];
-    const firstRouteId = firstRoute?._id ?? '';
+export default function RestaurantListScreen({ navigation, route }: restaurantProps) {
+    // routeId arrives from DashboardScreen via navigation params
+    const routeId = route.params?.routeId ?? '';
 
-    const { data: restaurantsData, isLoading: restaurantsLoading } = useRestaurants(firstRouteId);
+    // ── Route details ──────────────────────────────────────────────────────────
+    // API: GET /routes/:id  →  { data: { route: Route } }
+    const { data: routeData, isLoading: routeLoading } = useRouteById(routeId);
+    const currentRoute: Route | undefined = routeData?.data?.route;
+
+    // ── Restaurants on this route ──────────────────────────────────────────────
+    const { data: restaurantsData, isLoading: restaurantsLoading } = useRestaurants(routeId);
     const restaurants: Restaurant[] = restaurantsData?.data?.restaurants ?? [];
 
+    // ── Geolocation state ──────────────────────────────────────────────────────
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationLoading, setLocLoading] = useState(true);
+    const watchIdRef = useRef<number | null>(null);
+
+    // ── UI state ───────────────────────────────────────────────────────────────
     const [activeFilter, setActiveFilter] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchFocused, setFocused] = useState(false);
     const [selectedRestaurantId, setSelectedId] = useState<string | null>(null);
 
-    const isLoading = routesLoading || restaurantsLoading;
+    const isLoading = routeLoading || restaurantsLoading;
     const isSearching = searchQuery.trim().length > 0;
 
-    // ── Filter + search ───────────────────────────────────────────────────────
+    // ── Location permission ────────────────────────────────────────────────────
+    const requestPermission = useCallback(async (): Promise<boolean> => {
+        if (Platform.OS === 'android') {
+            try {
+                const result = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                    {
+                        title: 'Location Access',
+                        message:
+                            'Rodofood uses your location to track your position along the route.',
+                        buttonPositive: 'Allow',
+                        buttonNegative: 'Deny',
+                    },
+                );
+                return result === PermissionsAndroid.RESULTS.GRANTED;
+            } catch {
+                return false;
+            }
+        }
+        // iOS — NSLocationWhenInUseUsageDescription must be in Info.plist
+        Geolocation.requestAuthorization();
+        return true;
+    }, []);
+
+    // ── Start GPS tracking ─────────────────────────────────────────────────────
+    useEffect(() => {
+        let watchId: number;
+
+        const startTracking = async () => {
+            const allowed = await requestPermission();
+            if (!allowed) {
+                setLocLoading(false);
+                return;
+            }
+
+            // Immediate fix
+            Geolocation.getCurrentPosition(
+                pos => {
+                    setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    setLocLoading(false);
+                },
+                () => setLocLoading(false),
+                { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+            );
+
+            // Continuous tracking — update every 200 m of movement
+            watchId = Geolocation.watchPosition(
+                pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                () => {},
+                { enableHighAccuracy: true, distanceFilter: 200 },
+            );
+            watchIdRef.current = watchId;
+        };
+
+        startTracking();
+
+        return () => {
+            if (watchIdRef.current !== null) Geolocation.clearWatch(watchIdRef.current);
+        };
+    }, [requestPermission]);
+
+    // ── Derive progress from GPS + waypoints ───────────────────────────────────
+    const { userProgress, nearestWaypoint } = useMemo(() => {
+        const waypoints = currentRoute?.waypoints ?? [];
+        if (!userLocation || waypoints.length === 0) {
+            return { userProgress: 0, nearestWaypoint: undefined };
+        }
+        const idx = nearestWaypointIdx(waypoints, userLocation.lat, userLocation.lng);
+        const progress = waypoints.length > 1 ? idx / (waypoints.length - 1) : 0;
+        return { userProgress: progress, nearestWaypoint: waypoints[idx] };
+    }, [userLocation, currentRoute?.waypoints]);
+
+    // ── Filter + search ────────────────────────────────────────────────────────
     const filtered = useMemo(() => {
         let list = [...restaurants];
 
@@ -163,7 +363,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
         return list;
     }, [searchQuery, activeFilter, restaurants]);
 
-    // ── Stats for header sub-text ─────────────────────────────────────────────
+    // ── Header stats ───────────────────────────────────────────────────────────
     const openCount = restaurants.filter(r => r.isOpen && r.isActive).length;
     const closedCount = restaurants.length - openCount;
 
@@ -172,25 +372,22 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
         const id = r._id ?? '';
         const isVeg = r.foodType === 'veg';
         const isOpen = r.isOpen && r.isActive;
-        const isPassed = !r.isActive; // treat inactive as "passed/unavailable"
+        const isPassed = !r.isActive;
         const cuisine = getCuisine(r);
         const eta = getEta(r);
         const q = searchQuery.trim();
 
-        // Highlight matching portion of name
         const renderName = () => {
-            if (!q) {
+            if (!q)
                 return (
                     <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>{r.name}</Text>
                 );
-            }
             const lower = r.name.toLowerCase();
             const idx = lower.indexOf(q.toLowerCase());
-            if (idx === -1) {
+            if (idx === -1)
                 return (
                     <Text style={[styles.rowName, isPassed && styles.rowNamePassed]}>{r.name}</Text>
                 );
-            }
             return (
                 <Text style={[styles.rowName, isPassed && styles.rowNamePassed]} numberOfLines={1}>
                     {r.name.slice(0, idx)}
@@ -217,7 +414,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                 }}
             >
                 <View style={styles.rowInner}>
-                    {/* Image */}
+                    {/* ── Image ──────────────────────────────────────────────── */}
                     <View style={styles.rowImageWrap}>
                         <View style={[styles.rowImage, isPassed && styles.rowImagePassed]}>
                             {r.coverImage ? (
@@ -250,7 +447,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                         )}
                     </View>
 
-                    {/* Info */}
+                    {/* ── Info ───────────────────────────────────────────────── */}
                     <View style={styles.rowInfoWrap}>
                         <View style={styles.rowNameRow}>
                             {renderName()}
@@ -304,7 +501,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                                     </Text>
                                 </View>
 
-                                {isOpen && id ? (
+                                {isOpen && id && (
                                     <TouchableOpacity
                                         style={styles.preOrderBtn}
                                         onPress={() => {
@@ -313,14 +510,12 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                                                 .getParent<
                                                     NativeStackNavigationProp<RootStackParamList>
                                                 >()
-                                                .navigate('menu', {
-                                                    restaurantId: id,
-                                                });
+                                                .navigate('menu', { restaurantId: id });
                                         }}
                                     >
                                         <Text style={styles.preOrderText}>Pre-order</Text>
                                     </TouchableOpacity>
-                                ) : null}
+                                )}
                             </View>
                         )}
 
@@ -344,21 +539,27 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
         <View style={styles.root}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
-            {/* Top bar */}
+            {/* ── Top bar ─────────────────────────────────────────────────────── */}
             <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
+
                 <View style={styles.topBarCenter}>
-                    <Text style={styles.topBarTitle}>
-                        {firstRoute
-                            ? `${firstRoute.startCity ?? 'Start'} → ${firstRoute.endCity ?? 'End'}`
+                    <Text style={styles.topBarTitle} numberOfLines={1}>
+                        {currentRoute
+                            ? `${currentRoute.fromCity} → ${currentRoute.toCity}`
+                            : routeLoading
+                            ? 'Loading route…'
                             : 'On Your Route'}
                     </Text>
                     <Text style={styles.topBarSub}>
-                        {isLoading ? 'Loading…' : `${openCount} open · ${closedCount} closed`}
+                        {isLoading
+                            ? 'Fetching restaurants…'
+                            : `${openCount} open · ${closedCount} closed`}
                     </Text>
                 </View>
+
                 <TouchableOpacity
                     style={styles.cartBtn}
                     onPress={() =>
@@ -367,22 +568,26 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                             .navigate('cart')
                     }
                 >
-                    <Text>🛒</Text>
+                    <Text style={{ fontSize: 18 }}>🛒</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Route progress */}
-            {!isSearching && (
+            {/* ── Route progress bar (hidden while searching) ──────────────── */}
+            {!isSearching && currentRoute && (
                 <View style={styles.routeBarWrap}>
                     <RouteProgressBar
-                        from={firstRoute?.startCity ?? 'Start'}
-                        to={firstRoute?.endCity ?? 'End'}
-                        totalKm={firstRoute?.distanceKm}
+                        fromCity={currentRoute.fromCity}
+                        toCity={currentRoute.toCity}
+                        totalKm={currentRoute.totalDistanceKm}
+                        waypoints={currentRoute.waypoints ?? []}
+                        userProgress={userProgress}
+                        nearestWaypointName={nearestWaypoint?.name}
+                        locationLoading={locationLoading}
                     />
                 </View>
             )}
 
-            {/* Search */}
+            {/* ── Search ──────────────────────────────────────────────────────── */}
             <View style={styles.searchContainer}>
                 <SearchBar
                     value={searchQuery}
@@ -401,9 +606,9 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                 )}
             </View>
 
-            {/* Filters */}
-            {!isSearching && (
-                <View>
+            {/* ── Filters (hidden while searching) ────────────────────────────── */}
+            <View>
+                {!isSearching && (
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -430,10 +635,10 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
-                </View>
-            )}
+                )}
+            </View>
 
-            {/* List */}
+            {/* ── Restaurant list ──────────────────────────────────────────────── */}
             <ScrollView
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
@@ -465,6 +670,7 @@ export default function RestaurantListScreen({ navigation }: restaurantProps) {
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.bg },
 
+    // ── Top bar ───────────────────────────────────────────────────────────────
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -484,7 +690,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     backIcon: { fontSize: 18, color: Colors.textPrimary, fontWeight: '700' },
-    topBarCenter: { flex: 1, alignItems: 'center' },
+    topBarCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
     topBarTitle: {
         fontSize: 16,
         fontWeight: '800',
@@ -501,14 +707,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
 
+    // ── Route progress bar ────────────────────────────────────────────────────
     routeBarWrap: {
         backgroundColor: Colors.bgCard,
         paddingHorizontal: 20,
+        paddingTop: 12,
         paddingBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
-    routeBar: { marginTop: 12 },
+    routeBar: {},
+
     routeBarTrack: {
         height: 6,
         backgroundColor: Colors.bgElevated,
@@ -521,18 +730,35 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         bottom: 0,
-        width: '28%',
         backgroundColor: Colors.brandRed,
         borderRadius: 3,
     },
+
+    // Waypoint dots on the track
+    waypointDot: {
+        position: 'absolute',
+        top: -4,
+        marginLeft: -5,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: Colors.bgElevated,
+        borderWidth: 2,
+        borderColor: Colors.border,
+        zIndex: 1,
+    },
+    waypointDotPassed: { backgroundColor: Colors.brandRed, borderColor: Colors.brandRed },
+
+    // User position marker
     routeMarker: {
         position: 'absolute',
-        top: -8,
+        top: -9,
         marginLeft: -10,
         width: 20,
         height: 20,
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: 2,
     },
     routeMarkerPulse: {
         position: 'absolute',
@@ -549,10 +775,35 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: Colors.bgCard,
     },
+
     routeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
     routeEndLabel: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
     routeDistLabel: { fontSize: 11, color: Colors.textMuted },
 
+    // Waypoint chips below track
+    waypointChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: Radius.full,
+        backgroundColor: Colors.bgElevated,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    waypointChipPassed: {
+        backgroundColor: 'rgba(214,26,26,0.08)',
+        borderColor: Colors.brandRed,
+    },
+    waypointChipCurrent: {
+        backgroundColor: Colors.amberGlow,
+        borderColor: Colors.amber,
+    },
+    waypointChipText: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+    waypointChipTextCurrent: { color: Colors.amber, fontWeight: '800' },
+
+    nearestText: { fontSize: 11, color: Colors.textMuted, marginTop: 8, fontWeight: '500' },
+    nearestHighlight: { color: Colors.amber, fontWeight: '700' },
+
+    // ── Search ────────────────────────────────────────────────────────────────
     searchContainer: {
         backgroundColor: Colors.bgCard,
         paddingHorizontal: 16,
@@ -602,13 +853,18 @@ const styles = StyleSheet.create({
     },
     resultBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.amber },
 
+    // ── Filters ───────────────────────────────────────────────────────────────
     filterScroll: {
         height: 56,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
         backgroundColor: Colors.bgCard,
     },
-    filterScrollContent: { paddingHorizontal: 20, paddingVertical: 10, alignItems: 'center' },
+    filterScrollContent: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
     filterChip: {
         height: 34,
         paddingHorizontal: 16,
@@ -624,6 +880,7 @@ const styles = StyleSheet.create({
     filterText: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', lineHeight: 16 },
     filterTextActive: { color: Colors.amber },
 
+    // ── List ──────────────────────────────────────────────────────────────────
     list: { flex: 1 },
     listContent: {
         paddingHorizontal: 20,
@@ -641,6 +898,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.border,
     },
 
+    // ── Restaurant row card ───────────────────────────────────────────────────
     rowCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -763,6 +1021,7 @@ const styles = StyleSheet.create({
     },
     routeConnectorDotPassed: { backgroundColor: Colors.passed },
 
+    // ── No results ────────────────────────────────────────────────────────────
     noResults: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24, gap: 10 },
     noResultsEmoji: { fontSize: 48, marginBottom: 4 },
     noResultsTitle: {

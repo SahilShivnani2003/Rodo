@@ -1,6 +1,8 @@
 export type MainTabParamList = {
     home: undefined;
-    restaurants: undefined;
+    restaurants: {
+        routeId: string;
+    } | undefined;
     orders: {
         orderId: string;
     };

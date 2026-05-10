@@ -15,32 +15,12 @@ import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
 import useAlert from '@/hooks/useAlert';
+import { Register } from '../types/Register';
+import { useCustomerRegisteration } from '../hooks/useCustomerAuth';
+import { useRestaurantRegisteration } from '../hooks/useRestaurantAuth';
+import { ApiError } from '@/types/ApiError';
 
-// ─── Role Types ───────────────────────────────────────────────────────────────
 type Role = 'customer' | 'restaurant';
-
-// ─── Static Register Handler (replace with API) ───────────────────────────────
-const staticRegister = (role: Role, payload: RegisterPayload): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            // TODO: replace with real API call
-            if (payload.phone.length === 10 && payload.password.length >= 6) {
-                resolve();
-            } else {
-                reject(new Error('Invalid details'));
-            }
-        }, 1000);
-    });
-};
-
-interface RegisterPayload {
-    fullName: string;
-    phone: string;
-    email: string;
-    password: string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 type Props = NativeStackScreenProps<RootStackParamList, 'register'>;
 
@@ -51,6 +31,9 @@ export default function RegisterScreen({ navigation }: Props) {
     const [role, setRole] = useState<Role>('customer');
     const roleSlide = useRef(new Animated.Value(0)).current;
 
+    //Query call
+    const { mutate: customerRegistration } = useCustomerRegisteration();
+    const { mutate: restaurantRegistration } = useRestaurantRegisteration();
     // Form fields
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
@@ -126,19 +109,40 @@ export default function RegisterScreen({ navigation }: Props) {
 
         setLoading(true);
 
-        // ── TODO: Replace with your API mutation ─────────────────────────────
-        staticRegister(role, { fullName, phone, email, password })
-            .then(() => {
-                setLoading(false);
-                alert.success('Account Created!', 'OTP has been sent to your email.');
-                // navigation.navigate('otpLogin', { phone, otp: undefined });
-            })
-            .catch(err => {
-                setLoading(false);
-                alert.error('Registration Failed', err?.message || 'Something went wrong');
-                triggerShake();
+        const data: Register = {
+            name: fullName,
+            phone: phone,
+            password: password,
+            email: email,
+        };
+
+        if (role === 'customer') {
+            customerRegistration(data, {
+                onSuccess: data => {
+                    alert.success('Otp Sent', data?.message || 'OTP sent successfully');
+                    navigation.replace('emailOtpVerify', {
+                        email: email,
+                        role: role,
+                    });
+                },
+                onError: (error: ApiError) => {
+                    alert.error('Error', error.message || 'Something went wrong');
+                },
             });
-        // ─────────────────────────────────────────────────────────────────────
+        } else if (role === 'restaurant') {
+            restaurantRegistration(data, {
+                onSuccess: data => {
+                    alert.success('Otp Sent', data?.message || 'OTP sent successfully');
+                    navigation.replace('emailOtpVerify', {
+                        email: email,
+                        role: role,
+                    });
+                },
+                onError: (error: ApiError) => {
+                    alert.error('Error', error.message || 'Something went wrong');
+                },
+            });
+        }
     };
 
     return (

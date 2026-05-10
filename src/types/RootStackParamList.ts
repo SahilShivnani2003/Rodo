@@ -13,6 +13,10 @@ export type RootStackParamList = {
         otp: string;
         phone: string;
     };
+    emailOtpVerify : {
+        email:string;
+        role: 'customer' | 'restaurant';
+    };
     loginSuccess: undefined;
     main: NavigatorScreenParams<MainTabParamList>;
     menu: {
@@ -27,4 +31,5 @@ export type RootStackParamList = {
         item: MenuItem;
     } | undefined;
     orderHistory: undefined;
+    createRestaurant: undefined;
 }; 
