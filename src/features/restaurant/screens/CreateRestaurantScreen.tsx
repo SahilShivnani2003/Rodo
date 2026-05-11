@@ -26,7 +26,7 @@ import { Waypoint, Route } from '../types/Route';
 import config from 'react-native-config';
 
 // ─── Google Maps reverse geocode ──────────────────────────────────────────────
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAo40Gb5malogCubGiVUBaHR2czr48YwNM'; 
+const GOOGLE_MAPS_API_KEY = config.GOOGLEMAPAPI; 
 
 async function reverseGeocode(
     lat: number,
