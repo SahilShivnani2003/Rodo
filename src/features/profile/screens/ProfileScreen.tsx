@@ -38,8 +38,8 @@ const CONTACT_ITEMS = [
         icon: '💬',
         iconBg: '#DCFCE7',
         label: 'WHATSAPP',
-        value: '+91 99999 99999',
-        onPress: () => Linking.openURL('whatsapp://send?phone=919999999999'),
+        value: '+91 6260144122',
+        onPress: () => Linking.openURL('whatsapp://send?phone=916260144122'),
     },
     {
         id: 'email',
@@ -54,8 +54,8 @@ const CONTACT_ITEMS = [
         icon: '📞',
         iconBg: '#FFF7ED',
         label: 'PHONE',
-        value: '+91 99999 99999',
-        onPress: () => Linking.openURL('tel:+919999999999'),
+        value: '+91 6260144122',
+        onPress: () => Linking.openURL('tel:+916260144122'),
     },
     {
         id: 'address',
@@ -148,12 +148,16 @@ const ContactModal = ({ visible, onClose }: ContactModalProps) => (
             <View style={styles.hoursCard}>
                 <Text style={styles.hoursTitle}>Support Hours</Text>
                 <View style={styles.hoursRow}>
-                    <Text style={styles.hoursDay}>Monday – Saturday</Text>
-                    <Text style={styles.hoursTime}>9 AM – 8 PM</Text>
+                    <Text style={styles.hoursDay}>Monday – Friday</Text>
+                    <Text style={styles.hoursTime}>9:00 AM – 8:00 PM</Text>
                 </View>
                 <View style={styles.hoursRow}>
                     <Text style={styles.hoursDay}>Sunday</Text>
-                    <Text style={styles.hoursTime}>10 AM – 6 PM</Text>
+                    <Text style={styles.hoursTime}>9:00 AM – 6:00 PM</Text>
+                </View>
+                <View style={styles.hoursRow}>
+                    <Text style={styles.hoursDay}>Sunday</Text>
+                    <Text style={styles.hoursTime}>10:00 AM – 4:00 PM</Text>
                 </View>
             </View>
         </View>
@@ -182,32 +186,32 @@ export function ProfileScreen({ navigation }: ProfileProps) {
         {
             icon: '🎟️',
             label: 'Help & FAQ',
-            onPress: () => Linking.openURL('whatsapp://send?phone=919999999999'),
+            onPress: () => Linking.openURL('whatsapp://send?phone=916260144122'),
         },
         {
             icon: 'ℹ️',
             label: 'About Us',
-            onPress: () => Linking.openURL('https://rodofood.vercel.app/pages/about'),
+            onPress: () => Linking.openURL('https://www.rodofood.com/pages/about'),
         },
         {
             icon: '💬',
             label: 'WhatsApp Support',
-            onPress: () => Linking.openURL('whatsapp://send?phone=919999999999'),
+            onPress: () => Linking.openURL('whatsapp://send?phone=916260144122'),
         },
         {
             icon: '📄',
             label: 'Terms & Conditions',
-            onPress: () => Linking.openURL('https://rodofood.vercel.app/pages/terms'),
+            onPress: () => Linking.openURL('https://www.rodofood.com/pages/terms'),
         },
         {
             icon: '🔒',
             label: 'Privacy Policy',
-            onPress: () => Linking.openURL('https://rodofood.vercel.app/pages/privacy'),
+            onPress: () => Linking.openURL('https://www.rodofood.com/pages/privacy'),
         },
         {
             icon: '💸',
             label: 'Refund Policy',
-            onPress: () => Linking.openURL('https://rodofood.vercel.app/pages/refund'),
+            onPress: () => Linking.openURL('https://www.rodofood.com/pages/refund'),
         },
         {
             icon: '📞',

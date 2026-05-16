@@ -10,6 +10,7 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     Image,
+    Linking,
 } from 'react-native';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -418,8 +419,8 @@ export default function RegisterScreen({ navigation }: Props) {
                 {/* ── Terms ─────────────────────────────────────────────────── */}
                 <Text style={styles.terms}>
                     By registering, you agree to our{' '}
-                    <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
-                    <Text style={styles.termsLink}>Privacy Policy</Text>
+                    <Text onPress={()=>Linking.openURL('https://www.rodofood.com/pages/terms')} style={styles.termsLink}>Terms of Service</Text> and{' '}
+                    <Text onPress={()=>Linking.openURL('https://www.rodofood.com/pages/privacy')} style={styles.termsLink}>Privacy Policy</Text>
                 </Text>
 
                 {/* ── CTA ───────────────────────────────────────────────────── */}

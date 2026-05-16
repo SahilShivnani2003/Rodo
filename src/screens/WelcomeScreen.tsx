@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    Animated,
     Dimensions,
     StatusBar,
     Platform,
@@ -15,36 +14,50 @@ import {
 import { Colors, Radius, Shadow } from '../theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/types/RootStackParamList';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 type welcomeProps = NativeStackScreenProps<RootStackParamList, 'welcome'>;
+
 // ─── Slides Data ──────────────────────────────────────────────────────────────
 
 const SLIDES = [
     {
-        emoji: '🛣️',
+        icon: <MaterialCommunityIcons name="road-variant" size={40} color={Colors.amber} />,
         bg: Colors.bg,
         accentBg: Colors.amberGlow2,
         title: 'Plan Your\nHighway Trip',
         desc: 'Select your route from Bhopal to Indore. We find all restaurants along the way — no surprises.',
         highlight: 'Bhopal → Indore',
+        highlightIcon: <Ionicons name="navigate" size={12} color="rgba(255,255,255,0.9)" />,
     },
     {
-        emoji: '🍽️',
+        icon: (
+            <MaterialCommunityIcons name="silverware-fork-knife" size={40} color={Colors.amber} />
+        ),
         bg: Colors.bg,
         accentBg: Colors.amberGlow,
         title: 'Pre-order Food\nBefore You Arrive',
         desc: 'Pick your meal, set your arrival time, and your food will be hot and ready when you get there.',
         highlight: 'Zero waiting time',
+        highlightIcon: <Ionicons name="time" size={12} color="rgba(255,255,255,0.9)" />,
     },
     {
-        emoji: '📍',
+        icon: <Ionicons name="location-sharp" size={40} color={Colors.amber} />,
         bg: Colors.bg,
         accentBg: Colors.amberGlow2,
         title: 'Track &\nEnjoy',
         desc: 'Watch your order status in real-time. Get directions to the restaurant with one tap.',
         highlight: 'Live order tracking',
+        highlightIcon: (
+            <MaterialCommunityIcons
+                name="map-marker-radius"
+                size={12}
+                color="rgba(255,255,255,0.9)"
+            />
+        ),
     },
 ];
 
@@ -68,7 +81,7 @@ const SlideIllustration = ({ slide }: { slide: (typeof SLIDES)[0] }) => (
 
         {/* Floating card mock */}
         <View style={styles.floatingCard}>
-            <Text style={styles.floatingEmoji}>{slide.emoji}</Text>
+            {slide.icon}
             <View style={styles.floatingLines}>
                 <View style={[styles.floatingLine, { width: 80 }]} />
                 <View style={[styles.floatingLine, { width: 56, marginTop: 5 }]} />
@@ -77,7 +90,7 @@ const SlideIllustration = ({ slide }: { slide: (typeof SLIDES)[0] }) => (
 
         {/* Highlight badge */}
         <View style={styles.highlightBadge}>
-            <View style={styles.highlightDot} />
+            {slide.highlightIcon}
             <Text style={styles.highlightText}>{slide.highlight}</Text>
         </View>
     </View>
@@ -110,10 +123,7 @@ export default function WelcomeScreen({ navigation }: welcomeProps) {
             <StatusBar barStyle="dark-content" backgroundColor={slide.bg} />
 
             {/* Skip */}
-            <TouchableOpacity
-                style={styles.skipBtn}
-                onPress={() => navigation.replace('login')}
-            >
+            <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.replace('login')}>
                 <Text style={styles.skipText}>Skip</Text>
             </TouchableOpacity>
 
@@ -145,7 +155,22 @@ export default function WelcomeScreen({ navigation }: welcomeProps) {
                     onPress={handleNext}
                     activeOpacity={0.85}
                 >
-                    <Text style={styles.nextBtnText}>{isLast ? 'Get Started 🚀' : 'Next →'}</Text>
+                    <Text style={styles.nextBtnText}>{isLast ? 'Get Started' : 'Next'}</Text>
+                    {isLast ? (
+                        <Ionicons
+                            name="rocket"
+                            size={18}
+                            color="#FFFFFF"
+                            style={styles.nextBtnIcon}
+                        />
+                    ) : (
+                        <Ionicons
+                            name="arrow-forward"
+                            size={18}
+                            color="#FFFFFF"
+                            style={styles.nextBtnIcon}
+                        />
+                    )}
                 </TouchableOpacity>
 
                 {isLast && (
@@ -241,7 +266,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.06)',
     },
-    floatingEmoji: { fontSize: 40 },
     floatingLines: {},
     floatingLine: {
         height: 10,
@@ -260,12 +284,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
         ...Shadow.amber,
-    },
-    highlightDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.7)',
     },
     highlightText: {
         fontSize: 11,
@@ -316,6 +334,9 @@ const styles = StyleSheet.create({
         borderRadius: Radius.md,
         paddingVertical: 16,
         alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
         ...Shadow.amber,
     },
     nextBtnFull: {},
@@ -324,6 +345,9 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#FFFFFF',
         letterSpacing: -0.2,
+    },
+    nextBtnIcon: {
+        marginTop: 1, // optical alignment with text
     },
     loginLink: {
         alignItems: 'center',

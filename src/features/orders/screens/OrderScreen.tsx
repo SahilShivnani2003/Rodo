@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
@@ -8,22 +8,72 @@ import {
     Platform,
     StatusBar,
     ActivityIndicator,
+    Linking,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import { Colors, Radius, Shadow } from '@theme/index';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MainTabParamList } from '@/types/MainTabParamList';
 import { Order, OrderRestaurant, OrderStatus } from '@/features/orders/types/Order';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetMyOrderDetail, useGetMyOrders, orderKeys } from '../hooks/hooks';
+import { useGetResById } from '@/features/menu/hooks/useGetResById';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_STEPS: { id: OrderStatus; label: string; icon: string; desc: string }[] = [
-    { id: 'pending', label: 'Order Sent', icon: '📨', desc: 'Restaurant received your order' },
-    { id: 'confirmed', label: 'Confirmed', icon: '✅', desc: 'Restaurant confirmed your order' },
-    { id: 'preparing', label: 'Preparing', icon: '🧑‍🍳', desc: 'Chef is preparing your food' },
-    { id: 'ready', label: 'Ready to Serve', icon: '🍽️', desc: 'Food is ready, come on in!' },
-    { id: 'completed', label: 'Completed', icon: '🎉', desc: 'Enjoy your meal!' },
+const STATUS_STEPS: {
+    id: OrderStatus;
+    label: string;
+    icon: React.ReactNode;
+    activeIcon: React.ReactNode;
+    desc: string;
+}[] = [
+    {
+        id: 'pending',
+        label: 'Order Sent',
+        icon: <MaterialIcon name="send" size={16} color={Colors.textMuted} />,
+        activeIcon: <MaterialIcon name="send" size={16} color={Colors.amber} />,
+        desc: 'Restaurant received your order',
+    },
+    {
+        id: 'confirmed',
+        label: 'Confirmed',
+        icon: <Icon name="checkmark-circle-outline" size={16} color={Colors.textMuted} />,
+        activeIcon: <Icon name="checkmark-circle" size={16} color={Colors.amber} />,
+        desc: 'Restaurant confirmed your order',
+    },
+    {
+        id: 'preparing',
+        label: 'Preparing',
+        icon: <MaterialCommunityIcon name="chef-hat" size={16} color={Colors.textMuted} />,
+        activeIcon: <MaterialCommunityIcon name="chef-hat" size={16} color={Colors.amber} />,
+        desc: 'Chef is preparing your food',
+    },
+    {
+        id: 'ready',
+        label: 'Ready to Serve',
+        icon: (
+            <MaterialCommunityIcon
+                name="silverware-fork-knife"
+                size={16}
+                color={Colors.textMuted}
+            />
+        ),
+        activeIcon: (
+            <MaterialCommunityIcon name="silverware-fork-knife" size={16} color={Colors.amber} />
+        ),
+        desc: 'Food is ready, come on in!',
+    },
+    {
+        id: 'completed',
+        label: 'Completed',
+        icon: <MaterialIcon name="celebration" size={16} color={Colors.textMuted} />,
+        activeIcon: <MaterialIcon name="celebration" size={16} color={Colors.amber} />,
+        desc: 'Enjoy your meal!',
+    },
 ];
 
 // Statuses where we should stop polling
@@ -31,7 +81,6 @@ const TERMINAL_STATUSES: OrderStatus[] = ['completed', 'cancelled', 'rejected'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns 'done' | 'active' | 'pending' relative to the current order status */
 const getStepState = (stepId: OrderStatus, currentStatus: OrderStatus) => {
     const order: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'completed'];
     const stepIdx = order.indexOf(stepId);
@@ -50,10 +99,6 @@ const formatTime = (iso?: string) => {
     }
 };
 
-/**
- * The API returns `restaurant` as a populated object { _id, name, coverImage, address }.
- * This helper safely extracts it regardless of whether it's a string ID or a populated object.
- */
 const getRestaurantInfo = (restaurant?: string | OrderRestaurant): OrderRestaurant | null => {
     if (!restaurant) return null;
     if (typeof restaurant === 'object') return restaurant;
@@ -65,9 +110,7 @@ const getRestaurantInfo = (restaurant?: string | OrderRestaurant): OrderRestaura
 type OrderProps = NativeStackScreenProps<MainTabParamList, 'orders'>;
 
 export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
-    // Support both receiving a fresh orderId from CartScreen and
-    // falling back to the most recent order from the list endpoint.
-    const orderId = (route?.params as any)?.orderId as string | undefined;
+    const orderId = route.params?.orderId;
 
     const {
         data: detailData,
@@ -93,9 +136,18 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
 
     const isLoading = orderId ? detailLoading : listLoading;
     const isTerminal = order ? TERMINAL_STATUSES.includes(order.status) : false;
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const orderRestaurant = getRestaurantInfo(order?.restaurant);
+    const restaurantId = orderRestaurant?._id;
+
+    const {
+        data: restaurantData,
+        isLoading: restaurantLoading,
+        refetch: refetchRestaurant,
+    } = useGetResById(restaurantId ?? '');
     // Resolve restaurant info (populated object or null)
-    const restaurant = order ? getRestaurantInfo(order.restaurant) : null;
+    const restaurant = restaurantData?.data?.restaurant;
 
     // ── Poll every 15s until a terminal status is reached ────────────────────
     useEffect(() => {
@@ -112,10 +164,28 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [isTerminal, order, orderId]);
+    }, [isTerminal, order, orderId, refetchDetail, queryClient]);
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([refetchDetail(), refetchRestaurant()]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const handleNavigate = () => {
+        const coords = restaurant?.location?.coordinates;
+        if (!coords || coords.length < 2) return;
+        const [lng, lat] = coords; // GeoJSON order: [longitude, latitude]
+        Linking.openURL(`google.navigation:q=${lat},${lng}&mode=d`);
+    };
 
     // ── Loading state ─────────────────────────────────────────────────────────
-    if (isLoading) {
+    if (isLoading || isRefreshing) {
         return (
             <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
                 <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
@@ -135,7 +205,12 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                 ]}
             >
                 <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
-                <Text style={{ fontSize: 48, marginBottom: 16 }}>🛒</Text>
+                <MaterialCommunityIcon
+                    name="cart-outline"
+                    size={56}
+                    color={Colors.textMuted}
+                    style={{ marginBottom: 16 }}
+                />
                 <Text style={styles.cardTitle}>No active orders</Text>
                 <Text style={[styles.sumLabel, { textAlign: 'center', marginTop: 8 }]}>
                     Place an order from a restaurant to track it here.
@@ -156,31 +231,38 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
         : '—';
 
     const isFailed = order.status === 'cancelled' || order.status === 'rejected';
-
-    // Format customerETA for display
     const etaDisplay = order.customerETA ? formatTime(order.customerETA) : `${etaMinutes} min`;
+
+    const paymentLabel =
+        order.paymentMethod === 'cash'
+            ? 'Pay at Restaurant'
+            : order.paymentMethod === 'upi_at_restaurant'
+            ? 'UPI at Restaurant'
+            : 'Online Payment';
 
     return (
         <View style={styles.root}>
+            <StatusBar barStyle="dark-content" backgroundColor={Colors.bgCard} />
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
-                    <Text style={styles.backIcon}>←</Text>
+                <TouchableOpacity style={styles.headerBtn} onPress={() => navigation?.goBack?.()}>
+                    <Icon name="arrow-back" size={20} color={Colors.textPrimary} />
                 </TouchableOpacity>
                 <View style={styles.headerCenter}>
                     <Text style={styles.headerTitle}>Tracking Order</Text>
                     <Text style={styles.headerSub}>#{order.orderNumber ?? '—'}</Text>
                 </View>
                 <TouchableOpacity
-                    style={styles.backBtn}
-                    onPress={() =>
-                        orderId
-                            ? refetchDetail()
-                            : queryClient.invalidateQueries({ queryKey: orderKeys.myOrders() })
-                    }
+                    style={styles.headerBtn}
+                    onPress={handleRefresh}
+                    disabled={isRefreshing}
                 >
-                    <Text style={{ fontSize: 16 }}>↻</Text>
+                    {isRefreshing ? (
+                        <ActivityIndicator size="small" color={Colors.brandRed} />
+                    ) : (
+                        <Icon name="refresh" size={20} color={Colors.textPrimary} />
+                    )}
                 </TouchableOpacity>
             </View>
 
@@ -192,9 +274,11 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                 {/* Cancelled / Rejected banner */}
                 {isFailed && (
                     <View style={styles.failedBanner}>
-                        <Text style={styles.failedIcon}>
-                            {order.status === 'rejected' ? '❌' : '🚫'}
-                        </Text>
+                        <MaterialIcon
+                            name={order.status === 'rejected' ? 'cancel' : 'block'}
+                            size={24}
+                            color={Colors.redPin}
+                        />
                         <View style={{ flex: 1 }}>
                             <Text style={styles.failedTitle}>
                                 Order {order.status === 'rejected' ? 'Rejected' : 'Cancelled'}
@@ -209,19 +293,46 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                 {/* Restaurant row */}
                 <View style={styles.restRow}>
                     <View style={styles.restIcon}>
-                        <Text style={{ fontSize: 22 }}>🍽️</Text>
+                        <MaterialCommunityIcon
+                            name="silverware-fork-knife"
+                            size={22}
+                            color={Colors.amber}
+                        />
                     </View>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.restName}>{restaurant?.name ?? 'Restaurant'}</Text>
-                        <Text style={styles.restSub}>
-                            {restaurant?.address?.city ? `📍 ${restaurant.address.city}` : ''}
-                            {restaurant?.address?.city ? ' · ' : ''}
-                            {order.orderType === 'dine-in' ? '🍽️ Dine-in' : '🛍️ Takeaway'}
-                            {order.createdAt ? ` · Placed ${formatTime(order.createdAt)}` : ''}
-                        </Text>
+                        <View style={styles.restSubRow}>
+                            {!!restaurant?.address?.city && (
+                                <>
+                                    <Icon
+                                        name="location-sharp"
+                                        size={11}
+                                        color={Colors.textSecondary}
+                                    />
+                                    <Text style={styles.restSub}>{restaurant.address.city}</Text>
+                                    <Text style={styles.restSubDot}>·</Text>
+                                </>
+                            )}
+                            <MaterialCommunityIcon
+                                name={order.orderType === 'dine-in' ? 'silverware' : 'shopping'}
+                                size={11}
+                                color={Colors.textSecondary}
+                            />
+                            <Text style={styles.restSub}>
+                                {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
+                            </Text>
+                            {!!order.createdAt && (
+                                <>
+                                    <Text style={styles.restSubDot}>·</Text>
+                                    <Text style={styles.restSub}>
+                                        Placed {formatTime(order.createdAt)}
+                                    </Text>
+                                </>
+                            )}
+                        </View>
                     </View>
-                    <TouchableOpacity style={styles.navBtn}>
-                        <Text style={{ fontSize: 16 }}>🗺️</Text>
+                    <TouchableOpacity style={styles.navBtn} onPress={handleNavigate}>
+                        <Icon name="navigate" size={16} color={Colors.amber} />
                         <Text style={styles.navBtnText}>Navigate</Text>
                     </TouchableOpacity>
                 </View>
@@ -282,9 +393,13 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                                                 state === 'pending' && styles.tlPending,
                                             ]}
                                         >
-                                            <Text style={styles.tlIcon}>
-                                                {state === 'done' ? '✓' : step.icon}
-                                            </Text>
+                                            {state === 'done' ? (
+                                                <Icon name="checkmark" size={18} color="#FFFFFF" />
+                                            ) : state === 'active' ? (
+                                                step.activeIcon
+                                            ) : (
+                                                step.icon
+                                            )}
                                         </View>
                                         <View style={styles.tlText}>
                                             <View style={styles.tlLabelRow}>
@@ -358,16 +473,15 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                     </View>
                     <View style={styles.paymentRow}>
                         <View style={styles.payBadge}>
-                            <Text style={{ fontSize: 12 }}>💵</Text>
-                            <Text style={styles.payText}>
-                                {order.paymentMethod === 'cash'
-                                    ? 'Pay at Restaurant'
-                                    : order.paymentMethod === 'upi_at_restaurant'
-                                    ? 'UPI at Restaurant'
-                                    : 'Online Payment'}
-                            </Text>
+                            <MaterialIcon name="payments" size={13} color={Colors.textSecondary} />
+                            <Text style={styles.payText}>{paymentLabel}</Text>
                         </View>
                         <View style={styles.payBadge}>
+                            <MaterialCommunityIcon
+                                name={order.orderType === 'dine-in' ? 'silverware' : 'shopping'}
+                                size={13}
+                                color={Colors.textSecondary}
+                            />
                             <Text style={styles.payText}>
                                 {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
                             </Text>
@@ -378,11 +492,11 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                 {/* Support */}
                 <View style={styles.supportRow}>
                     <TouchableOpacity style={styles.supportBtn}>
-                        <Text style={{ fontSize: 22 }}>💬</Text>
+                        <FontAwesome5Icon name="whatsapp" size={22} color="#25D366" />
                         <Text style={styles.supportText}>WhatsApp</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.supportBtn}>
-                        <Text style={{ fontSize: 22 }}>✉️</Text>
+                        <MaterialIcon name="mail-outline" size={22} color={Colors.textSecondary} />
                         <Text style={styles.supportText}>Email Support</Text>
                     </TouchableOpacity>
                 </View>
@@ -409,7 +523,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
     },
-    backBtn: {
+    headerBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -417,7 +531,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    backIcon: { fontSize: 18, color: Colors.textPrimary, fontWeight: '700' },
     headerCenter: { flex: 1, alignItems: 'center' },
     headerTitle: {
         fontSize: 16,
@@ -438,7 +551,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#FCA5A5',
     },
-    failedIcon: { fontSize: 24 },
     failedTitle: { fontSize: 14, fontWeight: '700', color: Colors.redPin },
     failedReason: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
 
@@ -463,7 +575,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     restName: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },
-    restSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+    restSubRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 4,
+        marginTop: 3,
+    },
+    restSub: { fontSize: 11, color: Colors.textSecondary },
+    restSubDot: { fontSize: 11, color: Colors.textMuted },
     navBtn: {
         backgroundColor: Colors.amberGlow,
         borderRadius: Radius.sm,
@@ -552,7 +672,6 @@ const styles = StyleSheet.create({
     tlDone: { backgroundColor: Colors.successGreen, borderColor: Colors.successGreen },
     tlActive: { backgroundColor: Colors.amberGlow, borderColor: Colors.amber },
     tlPending: { backgroundColor: Colors.bgElevated, borderColor: Colors.border, opacity: 0.5 },
-    tlIcon: { fontSize: 16 },
     tlText: { flex: 1, paddingTop: 8 },
     tlLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     tlLabel: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.2 },

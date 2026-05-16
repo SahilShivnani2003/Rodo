@@ -33,7 +33,7 @@ const OFFERS = [
         id: '1',
         label: '10% Off',
         sub: 'on all pre-orders',
-        emoji: '🎉',
+        icon: 'tag-multiple',
         color: Colors.brandRed,
         bg: 'rgba(214,26,26,0.12)',
     },
@@ -41,7 +41,7 @@ const OFFERS = [
         id: '2',
         label: 'Free Chai',
         sub: 'orders above ₹199',
-        emoji: '☕',
+        icon: 'coffee',
         color: Colors.brandYellow,
         bg: 'rgba(255,211,0,0.12)',
     },
@@ -49,34 +49,34 @@ const OFFERS = [
         id: '3',
         label: '₹50 Off',
         sub: 'first order',
-        emoji: '🔥',
+        icon: 'fire',
         color: '#9333EA',
         bg: 'rgba(147,51,234,0.10)',
     },
 ];
 
 const CATEGORIES = [
-    { id: '1', emoji: '🍱', label: 'Thali' },
-    { id: '2', emoji: '🍔', label: 'Snacks' },
-    { id: '3', emoji: '☕', label: 'Chai' },
-    { id: '4', emoji: '🍟', label: 'Fast Food' },
-    { id: '5', emoji: '🥗', label: 'Healthy' },
+    { id: '1', icon: 'food-variant', label: 'Thali' },
+    { id: '2', icon: 'hamburger', label: 'Snacks' },
+    { id: '3', icon: 'coffee', label: 'Chai' },
+    { id: '4', icon: 'french-fries', label: 'Fast Food' },
+    { id: '5', icon: 'food-apple', label: 'Healthy' },
 ];
 
 const DELIVERY_TIMES = [
-    { id: 'immediately', label: 'Now', emoji: '⚡' },
-    { id: '30', label: '30 min', emoji: '🕐' },
-    { id: '45', label: '45 min', emoji: '🕒' },
-    { id: 'custom', label: 'Custom', emoji: '📅' },
+    { id: 'immediately', label: 'Now', icon: 'lightning-bolt' },
+    { id: '30', label: '30 min', icon: 'clock-outline' },
+    { id: '45', label: '45 min', icon: 'clock-time-three-outline' },
+    { id: 'custom', label: 'Custom', icon: 'calendar-clock' },
 ];
 
 const HOME_FILTERS: string[] = ['All', 'Veg', 'Non-Veg', 'Open Now', 'Top Rated'];
 
 const QUICK_BITES = [
-    { id: '1', name: 'Paneer Tikka', price: '₹120', emoji: '🍢', rating: 4.7 },
-    { id: '2', name: 'Chicken Roll', price: '₹150', emoji: '🌯', rating: 4.5 },
-    { id: '3', name: 'Veg Burger', price: '₹80', emoji: '🍔', rating: 4.8 },
-    { id: '4', name: 'Masala Chai', price: '₹30', emoji: '☕', rating: 4.9 },
+    { id: '1', name: 'Paneer Tikka', price: '₹120', icon: 'food-drumstick', rating: 4.7 },
+    { id: '2', name: 'Chicken Roll', price: '₹150', icon: 'food-variant', rating: 4.5 },
+    { id: '3', name: 'Veg Burger', price: '₹80', icon: 'hamburger', rating: 4.8 },
+    { id: '4', name: 'Masala Chai', price: '₹30', icon: 'coffee', rating: 4.9 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 resizeMode="cover"
                             />
                         ) : (
-                            <Text style={{ fontSize: 52 }}>🍽️</Text>
+                            <Icon name="silverware-fork-knife" size={52} color={Colors.textMuted} />
                         )}
                     </View>
 
@@ -275,25 +275,28 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     </View>
 
                     <View style={styles.ratingBadge}>
-                        <Text style={styles.ratingBadgeStar}>★</Text>
+                        <Icon name="star" size={10} color={Colors.amber} />
                         <Text style={styles.ratingBadgeText}>{r.rating.toFixed(1)}</Text>
                     </View>
 
                     {isAhead && (
                         <View style={styles.etaBadge}>
-                            <Text style={styles.etaBadgeText}>⏱ {getEta(r)}</Text>
+                            <Icon name="clock-fast" size={11} color="#FFFFFF" />
+                            <Text style={styles.etaBadgeText}>{getEta(r)}</Text>
                         </View>
                     )}
 
                     {r.isVerified && (
                         <View style={styles.verifiedBadge}>
-                            <Text style={styles.verifiedBadgeText}>✓ Verified</Text>
+                            <Icon name="check-circle" size={12} color="#FFFFFF" />
+                            <Text style={styles.verifiedBadgeText}>Verified</Text>
                         </View>
                     )}
 
                     {!isAhead && (
                         <View style={styles.passedBanner}>
                             <View style={styles.passedBannerInner}>
+                                <Icon name="clock-remove-outline" size={13} color="#FFFFFF" />
                                 <Text style={styles.passedBannerText}>
                                     {!r.isOpen ? 'Currently Closed' : 'Unavailable'}
                                 </Text>
@@ -321,7 +324,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     <View style={styles.restBottomRow}>
                         <View style={styles.metaGroup}>
                             <View style={styles.metaPill}>
-                                <Text style={styles.metaIcon}>📍</Text>
+                                <Icon name="map-marker" size={11} color={Colors.textMuted} />
                                 <Text style={styles.metaPillText}>{r.address.city}</Text>
                             </View>
                             <View style={styles.metaDot} />
@@ -343,7 +346,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 }
                             >
                                 <Text style={styles.menuCtaText}>Menu</Text>
-                                <Text style={styles.menuCtaArrow}>→</Text>
+                                <Icon name="arrow-right" size={14} color="#FFFFFF" />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -390,7 +393,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             </View>
                         </View>
                         <TouchableOpacity style={styles.heroNotif} activeOpacity={0.8}>
-                            <Text style={{ fontSize: 18 }}>🔔</Text>
+                            <Icon name="bell" size={20} color="#FFFFFF" />
                             <View style={styles.notifDot} />
                         </TouchableOpacity>
                     </View>
@@ -407,9 +410,9 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     {/* How it works */}
                     <View style={styles.howItWorks}>
                         {[
-                            { icon: 'circle-small', label: 'Select Route' },
-                            { icon: 'circle-small', label: 'Order Food Ahead' },
-                            { icon: 'circle-small', label: 'Enjoy Hot & Fresh Food' },
+                            { icon: 'map-marker-outline', label: 'Select Route' },
+                            { icon: 'clock-fast', label: 'Order Food Ahead' },
+                            { icon: 'emoticon-happy-outline', label: 'Enjoy Hot & Fresh Food' },
                         ].map(step => (
                             <View key={step.label} style={styles.howItWorksRow}>
                                 <Icon name={step.icon} size={18} color="rgba(255,255,255,0.8)" />
@@ -426,7 +429,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             onPress={() => navigation.navigate('restaurants')}
                         >
                             <Text style={styles.heroCtaText}>Start Journey</Text>
-                            <Text style={styles.heroCtaArrow}>→</Text>
+                            <Icon name="arrow-right" size={16} color={Colors.amber} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -434,7 +437,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                 {/* ══ SEARCH ════════════════════════════════════════════════════ */}
                 <View style={styles.searchOuter}>
                     <Animated.View style={[styles.searchInner, { borderColor: searchBorder }]}>
-                        <Text style={styles.searchIcon}>🔍</Text>
+                        <Icon name="magnify" size={18} color={Colors.textMuted} />
                         <TextInput
                             value={searchQuery}
                             onChangeText={setSearchQuery}
@@ -450,7 +453,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 style={styles.searchClearBtn}
                                 onPress={() => setSearchQuery('')}
                             >
-                                <Text style={styles.searchClearText}>✕</Text>
+                                <Icon name="close" size={13} color={Colors.textMuted} />
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.searchKbd}>
@@ -474,7 +477,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 onPress={handleSwap}
                                 activeOpacity={0.8}
                             >
-                                <Text style={styles.plannerSwapIcon}>⇅</Text>
+                                <Icon name="swap-vertical" size={16} color={Colors.amber} />
                                 <Text style={styles.plannerSwapText}>Swap</Text>
                             </TouchableOpacity>
                         </View>
@@ -533,10 +536,12 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         {/* Route meta info */}
                         {selectedRoute && (
                             <View style={styles.routeMeta}>
+                                <Icon name="ruler" size={13} color={Colors.textMuted} />
                                 <Text style={styles.routeMetaText}>
-                                    📏 {selectedRoute.totalDistanceKm} km
+                                    {selectedRoute.totalDistanceKm} km
                                 </Text>
                                 <View style={styles.routeMetaDot} />
+                                <Icon name="routes" size={13} color={Colors.textMuted} />
                                 <Text style={styles.routeMetaText} numberOfLines={1}>
                                     {selectedRoute.name}
                                 </Text>
@@ -553,7 +558,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         >
                             <Text style={styles.findBtnText}>Find Restaurants on Route</Text>
                             <View style={styles.findBtnArrowBox}>
-                                <Text style={styles.findBtnArrow}>→</Text>
+                                <Icon name="arrow-right" size={18} color="#FFFFFF" />
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -574,7 +579,13 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                     onPress={() => setSelectedTime(t.id)}
                                     activeOpacity={0.8}
                                 >
-                                    <Text style={styles.timeCardEmoji}>{t.emoji}</Text>
+                                    <Icon
+                                        name={t.icon}
+                                        size={22}
+                                        color={
+                                            selectedTime === t.id ? '#FFFFFF' : Colors.textSecondary
+                                        }
+                                    />
                                     <Text
                                         style={[
                                             styles.timeCardText,
@@ -624,8 +635,9 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     <View style={styles.section}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Special Offers</Text>
-                            <TouchableOpacity activeOpacity={0.7}>
-                                <Text style={styles.seeAllText}>See all →</Text>
+                            <TouchableOpacity activeOpacity={0.7} style={styles.seeAllRow}>
+                                <Text style={styles.seeAllText}>See all</Text>
+                                <Icon name="arrow-right" size={13} color={Colors.amber} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView
@@ -644,7 +656,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                         style={[styles.offerStrip, { backgroundColor: o.color }]}
                                     />
                                     <View style={[styles.offerIconBox, { backgroundColor: o.bg }]}>
-                                        <Text style={{ fontSize: 28 }}>{o.emoji}</Text>
+                                        <Icon name={o.icon} size={28} color={o.color} />
                                     </View>
                                     <Text style={[styles.offerTitle, { color: o.color }]}>
                                         {o.label}
@@ -654,8 +666,9 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                         style={[styles.offerCta, { borderColor: o.color + '50' }]}
                                     >
                                         <Text style={[styles.offerCtaText, { color: o.color }]}>
-                                            Grab →
+                                            Grab
                                         </Text>
+                                        <Icon name="arrow-right" size={12} color={o.color} />
                                     </View>
                                 </TouchableOpacity>
                             ))}
@@ -687,7 +700,15 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                             activeCat === c.id && styles.catEmojiBoxActive,
                                         ]}
                                     >
-                                        <Text style={styles.catCardEmoji}>{c.emoji}</Text>
+                                        <Icon
+                                            name={c.icon}
+                                            size={24}
+                                            color={
+                                                activeCat === c.id
+                                                    ? '#FFFFFF'
+                                                    : Colors.textSecondary
+                                            }
+                                        />
                                     </View>
                                     <Text
                                         style={[
@@ -706,8 +727,9 @@ export default function DashboardScreen({ navigation }: homeProps) {
                     <View style={styles.section}>
                         <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Quick Bites</Text>
-                            <TouchableOpacity activeOpacity={0.7}>
-                                <Text style={styles.seeAllText}>See all →</Text>
+                            <TouchableOpacity activeOpacity={0.7} style={styles.seeAllRow}>
+                                <Text style={styles.seeAllText}>See all</Text>
+                                <Icon name="arrow-right" size={13} color={Colors.amber} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView
@@ -723,13 +745,13 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                     activeOpacity={0.85}
                                 >
                                     <View style={styles.biteIconBox}>
-                                        <Text style={styles.biteEmoji}>{b.emoji}</Text>
+                                        <Icon name={b.icon} size={28} color={Colors.amber} />
                                     </View>
                                     <Text style={styles.biteName}>{b.name}</Text>
                                     <View style={styles.biteFooter}>
                                         <Text style={styles.bitePrice}>{b.price}</Text>
                                         <View style={styles.biteRating}>
-                                            <Text style={styles.biteRatingStar}>★</Text>
+                                            <Icon name="star" size={10} color={Colors.amber} />
                                             <Text style={styles.biteRatingText}>{b.rating}</Text>
                                         </View>
                                     </View>
@@ -744,8 +766,10 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         <TouchableOpacity
                             onPress={() => navigation.navigate('restaurants')}
                             activeOpacity={0.7}
+                            style={styles.seeAllRow}
                         >
-                            <Text style={styles.seeAllText}>See all →</Text>
+                            <Text style={styles.seeAllText}>See all</Text>
+                            <Icon name="arrow-right" size={13} color={Colors.amber} />
                         </TouchableOpacity>
                     </View>
 
@@ -757,7 +781,12 @@ export default function DashboardScreen({ navigation }: homeProps) {
                         />
                     ) : displayedRestaurants.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyStateEmoji}>🍽️</Text>
+                            <Icon
+                                name="silverware-fork-knife"
+                                size={48}
+                                color={Colors.textMuted}
+                                style={{ marginBottom: 8 }}
+                            />
                             <Text style={styles.emptyStateTitle}>No restaurants found</Text>
                             <Text style={styles.emptyStateDesc}>
                                 {searchQuery
@@ -917,7 +946,6 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     heroCtaText: { fontSize: 14, fontWeight: '900', color: Colors.amber, letterSpacing: -0.3 },
-    heroCtaArrow: { fontSize: 15, color: Colors.amber, fontWeight: '900' },
 
     // ── SEARCH ────────────────────────────────────────────────────────────────
     searchOuter: { paddingHorizontal: 18, marginTop: -26, marginBottom: 22, zIndex: 10 },
@@ -932,7 +960,6 @@ const styles = StyleSheet.create({
         gap: 10,
         ...Shadow.card,
     },
-    searchIcon: { fontSize: 16 },
     searchInput: {
         flex: 1,
         fontSize: 14,
@@ -948,7 +975,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    searchClearText: { fontSize: 12, color: Colors.textMuted, fontWeight: '700' },
     searchKbd: {
         backgroundColor: Colors.bgElevated,
         borderRadius: 7,
@@ -974,6 +1000,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 16,
     },
+    seeAllRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     seeAllText: { fontSize: 13, color: Colors.amber, fontWeight: '800' },
 
     // ── TRIP PLANNER ──────────────────────────────────────────────────────────
@@ -1011,7 +1038,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.borderActive,
     },
-    plannerSwapIcon: { fontSize: 14, color: Colors.amber, fontWeight: '900' },
     plannerSwapText: { fontSize: 12, color: Colors.amber, fontWeight: '800' },
     routeBox: {
         backgroundColor: Colors.bgInput,
@@ -1064,7 +1090,7 @@ const styles = StyleSheet.create({
     routeMeta: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
         marginBottom: 14,
         paddingHorizontal: 4,
     },
@@ -1092,7 +1118,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    findBtnArrow: { fontSize: 16, color: '#FFFFFF', fontWeight: '900' },
 
     // ── DELIVERY TIME ─────────────────────────────────────────────────────────
     timeGrid: { flexDirection: 'row', gap: 10, marginTop: 14 },
@@ -1110,7 +1135,6 @@ const styles = StyleSheet.create({
         ...Shadow.card,
     },
     timeCardActive: { backgroundColor: Colors.amber, borderColor: Colors.amber, ...Shadow.amber },
-    timeCardEmoji: { fontSize: 20 },
     timeCardText: {
         fontSize: 11,
         fontWeight: '800',
@@ -1171,7 +1195,15 @@ const styles = StyleSheet.create({
         lineHeight: 16,
         marginBottom: 14,
     },
-    offerCta: { borderWidth: 1.5, borderRadius: 10, paddingVertical: 7, alignItems: 'center' },
+    offerCta: {
+        borderWidth: 1.5,
+        borderRadius: 10,
+        paddingVertical: 7,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 4,
+    },
     offerCtaText: { fontSize: 12, fontWeight: '800' },
 
     // ── CATEGORIES ────────────────────────────────────────────────────────────
@@ -1197,7 +1229,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     catEmojiBoxActive: { backgroundColor: Colors.amber },
-    catCardEmoji: { fontSize: 22 },
     catCardLabel: { fontSize: 11, fontWeight: '800', color: Colors.textSecondary },
     catCardLabelActive: { color: Colors.amber, fontWeight: '900' },
 
@@ -1220,7 +1251,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    biteEmoji: { fontSize: 26 },
     biteName: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.2 },
     biteFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     bitePrice: { fontSize: 13, fontWeight: '800', color: Colors.amber },
@@ -1233,7 +1263,6 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         borderRadius: 7,
     },
-    biteRatingStar: { fontSize: 9, color: Colors.amber },
     biteRatingText: { fontSize: 10, fontWeight: '800', color: Colors.textSecondary },
 
     // ── RESTAURANT CARD ───────────────────────────────────────────────────────
@@ -1288,12 +1317,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 9,
         paddingVertical: 5,
     },
-    ratingBadgeStar: { fontSize: 10, color: Colors.amber },
     ratingBadgeText: { fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.3 },
     etaBadge: {
         position: 'absolute',
         bottom: 10,
         right: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
         backgroundColor: 'rgba(26,22,16,0.65)',
         borderRadius: 9,
         paddingHorizontal: 10,
@@ -1304,6 +1335,9 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 10,
         left: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
         backgroundColor: 'rgba(22,163,74,0.85)',
         borderRadius: 9,
         paddingHorizontal: 10,
@@ -1370,7 +1404,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 9,
         paddingVertical: 5,
     },
-    metaIcon: { fontSize: 10 },
     metaPillText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '700' },
     metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.border },
     tagChip: {
@@ -1394,11 +1427,9 @@ const styles = StyleSheet.create({
         ...Shadow.amber,
     },
     menuCtaText: { fontSize: 13, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.2 },
-    menuCtaArrow: { fontSize: 13, color: '#FFFFFF', fontWeight: '900' },
 
     // ── EMPTY STATE ───────────────────────────────────────────────────────────
     emptyState: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-    emptyStateEmoji: { fontSize: 48, marginBottom: 8 },
     emptyStateTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
     emptyStateDesc: {
         fontSize: 13,
