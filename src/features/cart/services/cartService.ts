@@ -8,6 +8,8 @@ export const CART_METADATA_KEY = '@rodo_cart_metadata';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type PaymentMethod = 'cash' | 'upi_at_restaurant' | 'online';
+
 export interface CartItem extends MenuItem {
     qty: number;
 }
@@ -17,12 +19,23 @@ export interface CartMetadata {
     dineMode: string;
     specialNote: string;
     appliedCoupon: { code: string; discount: number } | null;
+    paymentMethod: PaymentMethod;
 }
 
 export interface CartData {
     items: CartItem[];
     metadata: CartMetadata;
 }
+
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+
+const DEFAULT_METADATA: CartMetadata = {
+    selectedETA: '30 min',
+    dineMode: 'dine-in',
+    specialNote: '',
+    appliedCoupon: null,
+    paymentMethod: 'cash',
+};
 
 // ─── Cart Operations ──────────────────────────────────────────────────────────
 
@@ -56,28 +69,24 @@ export const saveCartItems = async (items: CartItem[]): Promise<boolean> => {
 };
 
 /**
- * Load cart metadata from AsyncStorage
+ * Load cart metadata from AsyncStorage.
+ * Falls back field-by-field so older persisted data without paymentMethod
+ * still deserialises cleanly.
  */
 export const loadCartMetadata = async (): Promise<CartMetadata> => {
     try {
-        const metadataData = await AsyncStorage.getItem(CART_METADATA_KEY);
-        if (metadataData) {
-            return JSON.parse(metadataData);
+        const raw = await AsyncStorage.getItem(CART_METADATA_KEY);
+        if (raw) {
+            const parsed: Partial<CartMetadata> = JSON.parse(raw);
+            return {
+                ...DEFAULT_METADATA,
+                ...parsed,
+            };
         }
-        return {
-            selectedETA: '30 min',
-            dineMode: 'Dine-in',
-            specialNote: '',
-            appliedCoupon: null,
-        };
+        return { ...DEFAULT_METADATA };
     } catch (error) {
         console.error('Error loading cart metadata:', error);
-        return {
-            selectedETA: '30 min',
-            dineMode: 'Dine-in',
-            specialNote: '',
-            appliedCoupon: null,
-        };
+        return { ...DEFAULT_METADATA };
     }
 };
 
@@ -95,8 +104,8 @@ export const saveCartMetadata = async (metadata: CartMetadata): Promise<boolean>
 };
 
 /**
- * Add item to cart
- * If item already exists, increment quantity
+ * Add item to cart.
+ * If item already exists, increment quantity.
  */
 export const addToCart = async (item: MenuItem, quantity: number = 1): Promise<CartItem[]> => {
     try {
@@ -104,10 +113,8 @@ export const addToCart = async (item: MenuItem, quantity: number = 1): Promise<C
         const existingItemIndex = cartItems.findIndex(i => i._id === item._id);
 
         if (existingItemIndex !== -1) {
-            // Item exists, increment quantity
             cartItems[existingItemIndex].qty += quantity;
         } else {
-            // New item, add to cart
             cartItems.push({ ...item, qty: quantity });
         }
 
@@ -147,7 +154,6 @@ export const updateCartItemQuantity = async (
 
         if (itemIndex !== -1) {
             if (quantity <= 0) {
-                // Remove item if quantity is 0 or less
                 return await removeFromCart(itemId);
             } else {
                 cartItems[itemIndex].qty = quantity;
@@ -163,7 +169,7 @@ export const updateCartItemQuantity = async (
 };
 
 /**
- * Clear entire cart
+ * Clear entire cart (items + metadata)
  */
 export const clearCart = async (): Promise<void> => {
     try {
@@ -178,7 +184,7 @@ export const clearCart = async (): Promise<void> => {
 };
 
 /**
- * Get cart count (total number of items)
+ * Get cart count (total number of item units)
  */
 export const getCartCount = async (): Promise<number> => {
     try {
@@ -199,8 +205,7 @@ export const getCartTotal = async (): Promise<{
     total: number;
 }> => {
     try {
-        const cartItems = await loadCartItems();
-        const metadata = await loadCartMetadata();
+        const [cartItems, metadata] = await Promise.all([loadCartItems(), loadCartMetadata()]);
 
         const subtotal = cartItems.reduce((sum, item) => {
             const price = item.discountedPrice || item.price;
@@ -254,21 +259,13 @@ export const loadCartData = async (): Promise<CartData> => {
         return { items, metadata };
     } catch (error) {
         console.error('Error loading cart data:', error);
-        return {
-            items: [],
-            metadata: {
-                selectedETA: '30 min',
-                dineMode: 'Dine-in',
-                specialNote: '',
-                appliedCoupon: null,
-            },
-        };
+        return { items: [], metadata: { ...DEFAULT_METADATA } };
     }
 };
 
 /**
- * Validate cart items (check if all items are still available)
- * This should be called when navigating to cart or before checkout
+ * Validate cart items against currently available menu items.
+ * Removes unavailable items from storage and returns both sets.
  */
 export const validateCartItems = async (
     availableItems: MenuItem[],
@@ -287,7 +284,6 @@ export const validateCartItems = async (
             }
         });
 
-        // Update cart with only valid items
         if (invalid.length > 0) {
             await saveCartItems(valid);
         }

@@ -397,9 +397,11 @@ export default function OrderHistoryScreen({ navigation }: OrderHistoryProps) {
         if (order.status === 'completed') {
             setRatingOrder(order);
         } else if (ACTIVE_STATUSES.includes(order.status)) {
-            (navigation as any)?.navigate?.('orders', { orderId: order.orderNumber });
+            navigation.navigate('main',{
+                screen: 'orders',
+                params: {orderId: order._id ?? ''}
+            });
         }
-        // cancelled/rejected — no action
     };
 
     const handleRatingSubmit = (stars: number, comment: string) => {

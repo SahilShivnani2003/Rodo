@@ -41,8 +41,14 @@ export interface OrderRestaurant {
     };
 }
 
+export interface OrderRating {
+    stars: number;
+    comment: string;
+    ratedAt: Date;
+}
+
 export interface Order {
-    _id?:string;
+    _id?: string;
     orderNumber?: string;
 
     customer?: string; // optional — resolved server-side from auth token
@@ -69,9 +75,11 @@ export interface Order {
     statusHistory?: OrderStatusHistory[];
 
     paymentMethod: PaymentMethod;
-    paymentStatus: PaymentStatus;
+    paymentStatus?: PaymentStatus;
     paymentTransactionId?: string;
-
+    razorpayOrderId?: string;  // rzp order id
+    razorpayPaymentId?: string;   // rzp payment id
+    razorpaySignature?: string;
     customerLocation?: {
         lat?: number;
         lng?: number;
@@ -81,7 +89,9 @@ export interface Order {
     tripRoute?: string;
 
     rejectionReason?: string;
-
+    cancellationImages?: string[];
+    refundId?: string;
+    rating?: OrderRating;
     isManualOrder: boolean;
     createdBy?: string;
 

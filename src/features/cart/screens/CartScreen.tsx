@@ -24,22 +24,49 @@ import {
     saveCartMetadata,
     clearCart as clearCartStorage,
 } from '../services/cartService';
-import { Order, OrderItem, OrderType } from '@/features/orders/types/Order';
+import { Order, OrderItem, OrderType, PaymentMethod } from '@/features/orders/types/Order';
 import { useCreateOrder } from '@/features/orders/hooks/hooks';
+import { useGetResById } from '@/features/menu/hooks/useGetResById';
+import { Restaurant } from '@/features/restaurant/types/Restaurant';
+import { useValidateCoupon } from '../hooks/useCoupon';
+import { useInitiatePayment, useVerifyPayment } from '../hooks/usePayment';
+import { ApiError } from '@/types/ApiError';
+import useAlert from '@/hooks/useAlert';
+import Razorpay from 'react-native-razorpay';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const COUPONS: Record<string, number> = {
-    RODO10: 10,
-    HIGHWAY50: 50,
-    FIRST20: 20,
-};
 
 const ETA_OPTIONS = ['30 min', '45 min', '60 min', 'Custom'];
 
 const DINE_OPTIONS: { label: string; value: OrderType }[] = [
     { label: 'Dine-in', value: 'dine-in' },
     { label: 'Takeaway', value: 'takeaway' },
+];
+
+const PAYMENT_OPTIONS: {
+    value: PaymentMethod;
+    label: string;
+    desc: string;
+    icon: string;
+}[] = [
+    {
+        value: 'cash',
+        label: 'Cash at Restaurant',
+        desc: 'Pay with cash when you arrive',
+        icon: '💵',
+    },
+    {
+        value: 'upi_at_restaurant',
+        label: 'UPI at Restaurant',
+        desc: 'Scan & pay on arrival',
+        icon: '📱',
+    },
+    {
+        value: 'online',
+        label: 'Pay Online',
+        desc: 'Card, UPI, Wallet & more',
+        icon: '💳',
+    },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -143,24 +170,35 @@ const billRow = StyleSheet.create({
 type CartProps = NativeStackScreenProps<RootStackParamList, 'cart'>;
 
 export default function CartScreen({ navigation, route }: CartProps) {
+    const alert = useAlert();
+
     const [items, setItems] = useState<CartItem[]>([]);
     const [couponCode, setCouponCode] = useState('');
+    const [couponError, setCouponError] = useState('');
+    const [isCouponLoading, setIsCouponLoading] = useState(false);
     const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(
         null,
     );
-    const [couponError, setCouponError] = useState('');
     const [selectedETA, setSelectedETA] = useState('30 min');
     const [dineMode, setDineMode] = useState<OrderType>('dine-in');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [specialNote, setSpecialNote] = useState('');
     const [noteExpanded, setNoteExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-    const { mutateAsync: placeOrder, isPending: isPlacingOrder } = useCreateOrder();
-
-    //ETA Variables
+    // ETA modal
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [customETA, setCustomETA] = useState('');
     const [customEtaInput, setCustomEtaInput] = useState('');
+
+    const { mutateAsync: placeOrder, isPending: isPlacingOrder } = useCreateOrder();
+    const { mutateAsync: validateCoupon } = useValidateCoupon();
+    const { mutateAsync: initiatePayment } = useInitiatePayment();
+    const { mutateAsync: verifyPayment } = useVerifyPayment();
+
+    const isBusy = isPlacingOrder || isProcessingPayment;
+
     // ── Load cart on mount ────────────────────────────────────────────────────
     useEffect(() => {
         loadCart();
@@ -190,8 +228,8 @@ export default function CartScreen({ navigation, route }: CartProps) {
     useEffect(() => {
         if (isLoading) return;
         if (items.length > 0) saveCartItems(items);
-        saveCartMetadata({ selectedETA, dineMode, specialNote, appliedCoupon });
-    }, [items, selectedETA, dineMode, specialNote, appliedCoupon, isLoading]);
+        saveCartMetadata({ selectedETA, dineMode, specialNote, appliedCoupon, paymentMethod });
+    }, [items, selectedETA, dineMode, specialNote, appliedCoupon, paymentMethod, isLoading]);
 
     const loadCart = async () => {
         try {
@@ -199,6 +237,7 @@ export default function CartScreen({ navigation, route }: CartProps) {
             setItems(cartItems);
             setSelectedETA(metadata.selectedETA);
             setDineMode((metadata.dineMode as OrderType) ?? 'dine-in');
+            setPaymentMethod((metadata.paymentMethod as PaymentMethod) ?? 'cash');
             setSpecialNote(metadata.specialNote);
             setAppliedCoupon(metadata.appliedCoupon);
         } catch {
@@ -216,6 +255,7 @@ export default function CartScreen({ navigation, route }: CartProps) {
         setSpecialNote('');
         setSelectedETA('30 min');
         setDineMode('dine-in');
+        setPaymentMethod('cash');
     };
 
     // ── Cart math ─────────────────────────────────────────────────────────────
@@ -225,7 +265,23 @@ export default function CartScreen({ navigation, route }: CartProps) {
     const discount = appliedCoupon?.discount ?? 0;
     const total = subtotal + gst - discount;
     const totalQty = items.reduce((s, i) => s + i.qty, 0);
+
     const restaurantId = items[0]?.restaurant ?? '';
+    const { data: restaurantData } = useGetResById(restaurantId);
+    const restaurant: Restaurant = restaurantData?.data?.restaurant;
+
+    // ── Shared helpers ────────────────────────────────────────────────────────
+    const resolveEtaMinutes = () =>
+        selectedETA === 'Custom' ? parseInt(customETA, 10) || 60 : parseInt(selectedETA, 10) || 30;
+
+    const buildOrderItems = (): OrderItem[] =>
+        items.map(item => ({
+            menuItemId: item._id!,
+            name: item.name,
+            price: item.discountedPrice ?? item.price,
+            quantity: item.qty,
+            foodType: item.foodType,
+        }));
 
     // ── Item mutations ────────────────────────────────────────────────────────
     const inc = (id: string) =>
@@ -255,19 +311,30 @@ export default function CartScreen({ navigation, route }: CartProps) {
         });
 
     // ── Coupon ────────────────────────────────────────────────────────────────
-    const applyCoupon = () => {
+    // Response: { success, message, data: { coupon: { code, discountType, discountValue }, discount } }
+    const handleApplyCoupon = async () => {
         const code = couponCode.trim().toUpperCase();
         if (!code) {
             setCouponError('Please enter a coupon code');
             return;
         }
-        if (COUPONS[code] !== undefined) {
-            setAppliedCoupon({ code, discount: COUPONS[code] });
-            setCouponError('');
+        setIsCouponLoading(true);
+        setCouponError('');
+        try {
+            const response = await validateCoupon({ code, orderAmount: subtotal, restaurantId });
+            const { coupon, discount: discountAmount } = response.data;
+            // Store the code from the server response and round the discount
+            setAppliedCoupon({ code: coupon.code, discount: Math.round(discountAmount) });
             setCouponCode('');
-        } else {
-            setCouponError('Invalid coupon code');
+        } catch (error: any) {
+            const msg =
+                error?.response?.data?.message ??
+                (error as ApiError)?.message ??
+                'Invalid coupon code';
+            setCouponError(msg);
             setAppliedCoupon(null);
+        } finally {
+            setIsCouponLoading(false);
         }
     };
 
@@ -277,36 +344,52 @@ export default function CartScreen({ navigation, route }: CartProps) {
         setCouponError('');
     };
 
-    // ── Place order ───────────────────────────────────────────────────────────
-    const handlePlaceOrder = async () => {
-        if (isPlacingOrder) return;
-
-        const etaMinutesMap: Record<string, number> = {
-            '30 min': 30,
-            '45 min': 45,
-            '60 min': 60,
-            Custom: 60,
-        };
-
-        const etaMinutes =
-            selectedETA === 'Custom'
-                ? parseInt(customETA, 10) || 60
-                : parseInt(selectedETA, 10) || 30;
-
-        // customerETA must be ISO 8601 — compute actual arrival datetime
+    // ── Online payment via Razorpay ───────────────────────────────────────────
+    const handleOnlinePayment = async () => {
+        const etaMinutes = resolveEtaMinutes();
         const etaDate = new Date(Date.now() + etaMinutes * 60 * 1000).toISOString();
 
-        const orderItems: OrderItem[] = items.map(item => ({
-            menuItemId: item._id!,
-            name: item.name,
-            price: item.discountedPrice ?? item.price,
-            quantity: item.qty,
-            foodType: item.foodType,
-        }));
+        // 1. Create Razorpay order on backend and get key + amount
+        const paymentData = await initiatePayment({
+            restaurantId,
+            items: buildOrderItems(),
+            orderType: dineMode,
+            customerETA: etaDate,
+            etaMinutes,
+        });
+
+        const { amount, keyId, snapshot } = paymentData.data;
+
+        // 2. Open Razorpay SDK — resolves with IDs or rejects on failure/dismiss
+        const paymentResponse = await Razorpay.open({
+            key: keyId,
+            amount,
+            currency: 'INR',
+            name: 'Rodofood',
+            description: 'Highway Food Pre-Order',
+            image: '/logo.jpeg',
+            prefill: {},
+            theme: { color: '#FF6B35' },
+        } as any);
+
+        // 3. Verify payment signature with backend
+        await verifyPayment({
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            snapshot,
+        });
+
+        await clearCart();
+        alert.success('Payment Successful', 'Your order has been placed!');
+    };
+
+    // ── COD / UPI-at-restaurant order ─────────────────────────────────────────
+    const handlePlaceOrder = async () => {
+        const etaMinutes = resolveEtaMinutes();
+        const etaDate = new Date(Date.now() + etaMinutes * 60 * 1000).toISOString();
 
         const payload: Order = {
             restaurantId,
-            items: orderItems,
+            items: buildOrderItems(),
             subtotal,
             gstAmount: gst,
             gstRate: GST_RATE,
@@ -317,23 +400,40 @@ export default function CartScreen({ navigation, route }: CartProps) {
             customerETA: etaDate,
             etaMinutes,
             status: 'pending',
-            paymentMethod: 'cash',
+            paymentMethod,
             paymentStatus: 'pending',
             isManualOrder: false,
+            ...(specialNote.trim() && { specialNote: specialNote.trim() }),
         };
 
+        const response = await placeOrder(payload);
+        await clearCart();
+        navigation.navigate('main', {
+            screen: 'orders',
+            params: { orderId: response?.data?._id ?? response?._id },
+        });
+    };
+
+    // ── Unified checkout entry point ──────────────────────────────────────────
+    const handleCheckout = async () => {
+        if (isBusy) return;
+        setIsProcessingPayment(true);
         try {
-            const response = await placeOrder(payload);
-            await clearCart();
-            navigation.navigate('main', {
-                screen: 'orders',
-                params: { orderId: response?.data?._id ?? response?._id },
-            });
+            if (paymentMethod === 'online') {
+                await handleOnlinePayment();
+            } else {
+                await handlePlaceOrder();
+            }
         } catch (error: any) {
-            Alert.alert(
-                'Order Failed',
-                error?.response?.data?.message ?? 'Something went wrong. Please try again.',
+            // Razorpay dismissal rejects with code 0 — silently ignore
+            if (error?.code === 0) return;
+            alert.error(
+                error?.response?.data?.message ??
+                    (error as ApiError)?.message ??
+                    'Something went wrong. Please try again.',
             );
+        } finally {
+            setIsProcessingPayment(false);
         }
     };
 
@@ -347,6 +447,8 @@ export default function CartScreen({ navigation, route }: CartProps) {
     }
 
     if (items.length === 0) return <EmptyCart navigation={navigation} />;
+
+    const selectedPayment = PAYMENT_OPTIONS.find(p => p.value === paymentMethod)!;
 
     return (
         <View style={styles.root}>
@@ -384,7 +486,7 @@ export default function CartScreen({ navigation, route }: CartProps) {
                         <Text style={{ fontSize: 20 }}>🍽️</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.restaurantName}>{restaurantId}</Text>
+                        <Text style={styles.restaurantName}>{restaurant?.name ?? '—'}</Text>
                         <Text style={styles.restaurantMeta}>Tap "Add more" to browse menu</Text>
                     </View>
                     <TouchableOpacity
@@ -492,6 +594,67 @@ export default function CartScreen({ navigation, route }: CartProps) {
                     ))}
                 </View>
 
+                {/* Payment Method */}
+                <SectionHeader title="💳 Payment Method" />
+                <View style={styles.paymentCard}>
+                    {PAYMENT_OPTIONS.map((option, index) => {
+                        const isActive = paymentMethod === option.value;
+                        return (
+                            <React.Fragment key={option.value}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.paymentOption,
+                                        isActive && styles.paymentOptionActive,
+                                    ]}
+                                    onPress={() => setPaymentMethod(option.value)}
+                                    activeOpacity={0.75}
+                                >
+                                    <View
+                                        style={[
+                                            styles.paymentRadio,
+                                            isActive && styles.paymentRadioActive,
+                                        ]}
+                                    >
+                                        {isActive && <View style={styles.paymentRadioDot} />}
+                                    </View>
+                                    <View
+                                        style={[
+                                            styles.paymentIconWrap,
+                                            isActive && styles.paymentIconWrapActive,
+                                        ]}
+                                    >
+                                        <Text style={styles.paymentIconEmoji}>{option.icon}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text
+                                            style={[
+                                                styles.paymentLabel,
+                                                isActive && styles.paymentLabelActive,
+                                            ]}
+                                        >
+                                            {option.label}
+                                        </Text>
+                                        <Text style={styles.paymentDesc}>{option.desc}</Text>
+                                    </View>
+                                    {option.value === 'cash' && (
+                                        <View style={styles.recommendedBadge}>
+                                            <Text style={styles.recommendedText}>Popular</Text>
+                                        </View>
+                                    )}
+                                    {option.value === 'online' && (
+                                        <View style={styles.onlineBadge}>
+                                            <Text style={styles.onlineText}>Instant</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                                {index < PAYMENT_OPTIONS.length - 1 && (
+                                    <View style={styles.paymentDivider} />
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </View>
+
                 {/* Special note */}
                 <TouchableOpacity
                     style={styles.noteToggle}
@@ -544,10 +707,19 @@ export default function CartScreen({ navigation, route }: CartProps) {
                             placeholderTextColor={Colors.textMuted}
                             autoCapitalize="characters"
                             returnKeyType="done"
-                            onSubmitEditing={applyCoupon}
+                            onSubmitEditing={handleApplyCoupon}
+                            editable={!isCouponLoading}
                         />
-                        <TouchableOpacity style={styles.couponApplyBtn} onPress={applyCoupon}>
-                            <Text style={styles.couponApplyText}>Apply</Text>
+                        <TouchableOpacity
+                            style={[styles.couponApplyBtn, isCouponLoading && { opacity: 0.6 }]}
+                            onPress={handleApplyCoupon}
+                            disabled={isCouponLoading}
+                        >
+                            {isCouponLoading ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Text style={styles.couponApplyText}>Apply</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 )}
@@ -568,8 +740,8 @@ export default function CartScreen({ navigation, route }: CartProps) {
                     <View style={styles.billDivider} />
                     <BillRow label="Total" value={`₹${total}`} isBold />
                     <View style={styles.paymentBadge}>
-                        <Text style={styles.paymentIcon}>💵</Text>
-                        <Text style={styles.paymentText}>Pay at Restaurant</Text>
+                        <Text style={styles.paymentBadgeIcon}>{selectedPayment.icon}</Text>
+                        <Text style={styles.paymentBadgeText}>{selectedPayment.label}</Text>
                     </View>
                 </View>
 
@@ -584,30 +756,32 @@ export default function CartScreen({ navigation, route }: CartProps) {
                 <View style={{ height: 120 }} />
             </ScrollView>
 
-            {/* Checkout */}
+            {/* Checkout bar */}
             <View style={styles.checkoutBar}>
                 <View style={styles.checkoutLeft}>
                     <Text style={styles.checkoutTotal}>₹{total}</Text>
                     <Text style={styles.checkoutItems}>{totalQty} items</Text>
                 </View>
                 <TouchableOpacity
-                    style={[styles.checkoutBtn, isPlacingOrder && { opacity: 0.7 }]}
-                    onPress={handlePlaceOrder}
+                    style={[styles.checkoutBtn, isBusy && { opacity: 0.7 }]}
+                    onPress={handleCheckout}
                     activeOpacity={0.85}
-                    disabled={isPlacingOrder}
+                    disabled={isBusy}
                 >
-                    {isPlacingOrder ? (
+                    {isBusy ? (
                         <ActivityIndicator color="#fff" size="small" />
                     ) : (
                         <>
-                            <Text style={styles.checkoutBtnText}>Place Order</Text>
+                            <Text style={styles.checkoutBtnText}>
+                                {paymentMethod === 'online' ? 'Pay Now' : 'Place Order'}
+                            </Text>
                             <Text style={styles.checkoutBtnArrow}>→</Text>
                         </>
                     )}
                 </TouchableOpacity>
             </View>
 
-            {/**Custom ETA Modal  */}
+            {/* Custom ETA Modal */}
             <Modal
                 visible={showCustomModal}
                 transparent
@@ -692,7 +866,7 @@ function EmptyCart({ navigation }: any) {
                 </Text>
                 <TouchableOpacity
                     style={emptyStyles.btn}
-                    onPress={() => navigation?.navigate?.('Restaurants')}
+                    onPress={() => navigation.navigate('main', { screen: 'restaurants' })}
                 >
                     <Text style={emptyStyles.btnText}>Browse Restaurants →</Text>
                 </TouchableOpacity>
@@ -783,6 +957,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FEE2E2',
     },
     clearBtnText: { fontSize: 12, fontWeight: '700', color: Colors.redPin },
+
     restaurantStrip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -819,6 +994,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.brandRed,
     },
     addMoreText: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
+
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -832,6 +1008,7 @@ const styles = StyleSheet.create({
         letterSpacing: -0.3,
     },
     sectionSub: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500' },
+
     itemsCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -870,6 +1047,7 @@ const styles = StyleSheet.create({
     },
     itemTotal: { fontSize: 12, fontWeight: '700', color: Colors.brandRed },
     itemDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 12 },
+
     etaRow: { flexDirection: 'row', gap: 8, marginBottom: 22, flexWrap: 'wrap' },
     etaChip: {
         paddingHorizontal: 16,
@@ -883,7 +1061,8 @@ const styles = StyleSheet.create({
     etaChipActive: { backgroundColor: Colors.amberGlow2, borderColor: Colors.brandRed },
     etaText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
     etaTextActive: { color: Colors.brandRed, fontWeight: '700' },
-    dineRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+
+    dineRow: { flexDirection: 'row', gap: 12, marginBottom: 22 },
     dineChip: {
         flex: 1,
         flexDirection: 'row',
@@ -901,6 +1080,77 @@ const styles = StyleSheet.create({
     dineEmoji: { fontSize: 18 },
     dineText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
     dineTextActive: { color: Colors.brandRed, fontWeight: '700' },
+
+    // ── Payment ───────────────────────────────────────────────────────────────
+    paymentCard: {
+        backgroundColor: Colors.bgCard,
+        borderRadius: Radius.lg,
+        marginBottom: 22,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        overflow: 'hidden',
+        ...Shadow.card,
+    },
+    paymentOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        backgroundColor: Colors.bgCard,
+    },
+    paymentOptionActive: { backgroundColor: Colors.amberGlow2 },
+    paymentRadio: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: Colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    paymentRadioActive: { borderColor: Colors.brandRed },
+    paymentRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.brandRed },
+    paymentIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: Radius.sm,
+        backgroundColor: Colors.bgElevated,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    paymentIconWrapActive: { backgroundColor: '#FFF7ED' },
+    paymentIconEmoji: { fontSize: 20 },
+    paymentLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.textPrimary,
+        letterSpacing: -0.1,
+    },
+    paymentLabelActive: { color: Colors.brandRed },
+    paymentDesc: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+    paymentDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
+    recommendedBadge: {
+        backgroundColor: '#FEF9C3',
+        borderRadius: Radius.full,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+    },
+    recommendedText: { fontSize: 10, fontWeight: '700', color: Colors.amber },
+    onlineBadge: {
+        backgroundColor: '#EFF6FF',
+        borderRadius: Radius.full,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+    },
+    onlineText: { fontSize: 10, fontWeight: '700', color: '#3B82F6' },
+
     noteToggle: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -929,6 +1179,7 @@ const styles = StyleSheet.create({
         marginBottom: 22,
         ...Shadow.card,
     },
+
     couponRow: { flexDirection: 'row', gap: 10, marginBottom: 6 },
     couponInput: {
         flex: 1,
@@ -950,6 +1201,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         alignItems: 'center',
         justifyContent: 'center',
+        minWidth: 72,
         ...Shadow.amber,
     },
     couponApplyText: { fontSize: 13, fontWeight: '800', color: '#fff' },
@@ -982,6 +1234,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         marginTop: 2,
     },
+
     billCard: {
         backgroundColor: Colors.bgCard,
         borderRadius: Radius.lg,
@@ -1003,8 +1256,9 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
         marginTop: 10,
     },
-    paymentIcon: { fontSize: 13 },
-    paymentText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+    paymentBadgeIcon: { fontSize: 13 },
+    paymentBadgeText: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+
     savingsCallout: {
         backgroundColor: '#F0FDF4',
         borderRadius: Radius.md,
@@ -1015,6 +1269,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     savingsText: { fontSize: 13, fontWeight: '700', color: Colors.vegGreen },
+
     checkoutBar: {
         position: 'absolute',
         bottom: 0,
@@ -1057,7 +1312,6 @@ const styles = StyleSheet.create({
     checkoutBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
     checkoutBtnArrow: { fontSize: 18, color: '#fff', fontWeight: '700' },
 
-    //Custom ETA Modal Style
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.45)',
