@@ -19,6 +19,7 @@ import { NativeBottomTabScreenProps } from '@react-navigation/bottom-tabs/unstab
 import { OwnerTabParamList } from '@/types/OwnerTabParamList';
 import { useRestaurantEarnings } from '../hooks/useRestaurantEarnings';
 import { useUpdateStatus } from '../hooks/useUpdateStatus';
+import useAlert from '@/hooks/useAlert';
 
 type ownerDashboardProps = NativeBottomTabScreenProps<OwnerTabParamList, 'dashboard'>;
 
@@ -128,6 +129,7 @@ function DashboardError({ onRetry }: { onRetry: () => void }) {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function OwnerDashboardScreen({ navigation }: ownerDashboardProps) {
+    const alert = useAlert();
     const { data, isLoading, error, refetch } = useOwnerRestaurant();
     const { data: orders } = useMyOrders();
     const {data: earnings} = useRestaurantEarnings();
@@ -189,7 +191,7 @@ export default function OwnerDashboardScreen({ navigation }: ownerDashboardProps
                         </Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.notifBtn}>
+                <TouchableOpacity style={styles.notifBtn} onPress={()=> alert.info('Comming soon', 'Notification feature comming soon.')}>
                     <Text style={{ fontSize: 20 }}>🔔</Text>
                     <View style={styles.notifDot} />
                 </TouchableOpacity>

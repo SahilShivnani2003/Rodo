@@ -23,6 +23,7 @@ import { useRoutes } from '../hooks/useRoutes';
 import { Restaurant } from '@/features/restaurant/types/Restaurant';
 import { Route } from '@/features/restaurant/types/Route';
 import { useAuthStore } from '@/store/useAuthStore';
+import useAlert from '@/hooks/useAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -142,6 +143,7 @@ function PressCard({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }: homeProps) {
+    const alert = useAlert();
     const user = useAuthStore().user;
     // ── Data fetching ──────────────────────────────────────────────────────────
     const { data: routesData, isLoading: routesLoading } = useRoutes();
@@ -392,7 +394,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                                 </View>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.heroNotif} activeOpacity={0.8}>
+                        <TouchableOpacity style={styles.heroNotif} activeOpacity={0.8} onPress={()=>alert.info('Comming Soon','Notification feature comming soon.')}>
                             <Icon name="bell" size={20} color="#FFFFFF" />
                             <View style={styles.notifDot} />
                         </TouchableOpacity>
@@ -447,6 +449,14 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             placeholderTextColor={Colors.textMuted}
                             style={styles.searchInput}
                             returnKeyType="search"
+                            onSubmitEditing={() => {
+                                if (searchQuery.trim()) {
+                                    navigation.navigate('restaurants', {
+                                        routeId,
+                                        searchQuery: searchQuery.trim(),
+                                    });
+                                }
+                            }}
                         />
                         {searchQuery.length > 0 ? (
                             <TouchableOpacity
@@ -457,7 +467,7 @@ export default function DashboardScreen({ navigation }: homeProps) {
                             </TouchableOpacity>
                         ) : (
                             <View style={styles.searchKbd}>
-                                <Text style={styles.searchKbdText}>⌘K</Text>
+                                <Text style={styles.searchKbdText}>OK</Text>
                             </View>
                         )}
                     </Animated.View>

@@ -261,7 +261,9 @@ export default function LoginWithPasswordScreen({ navigation }: Props) {
                     </View>
 
                     {/* Forgot password */}
-                    <TouchableOpacity style={styles.forgotWrap} activeOpacity={0.7}>
+                    <TouchableOpacity style={styles.forgotWrap} activeOpacity={0.7} 
+                        onPress={()=>alert.info('Comming Soon', 'Fogot password feature comming soon.')}
+                    >
                         <Text style={styles.forgotText}>Forgot password?</Text>
                     </TouchableOpacity>
                 </Animated.View>

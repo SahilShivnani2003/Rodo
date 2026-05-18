@@ -21,6 +21,7 @@ import { Order, OrderRestaurant, OrderStatus } from '@/features/orders/types/Ord
 import { useQueryClient } from '@tanstack/react-query';
 import { useGetMyOrderDetail, useGetMyOrders, orderKeys } from '../hooks/hooks';
 import { useGetResById } from '@/features/menu/hooks/useGetResById';
+import Geolocation from '@react-native-community/geolocation';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,17 @@ const TERMINAL_STATUSES: OrderStatus[] = ['completed', 'cancelled', 'rejected'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 const getStepState = (stepId: OrderStatus, currentStatus: OrderStatus) => {
     const order: OrderStatus[] = ['pending', 'confirmed', 'preparing', 'ready', 'completed'];
     const stepIdx = order.indexOf(stepId);
@@ -125,7 +137,7 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
 
     // Resolve the order to display
     const order: Order | undefined = orderId
-        ? detailData?.data ?? detailData
+        ? detailData?.data?.order ?? detailData
         : (() => {
               const orders: Order[] = listData?.data ?? listData ?? [];
               return [...orders].sort(
@@ -148,6 +160,16 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
     } = useGetResById(restaurantId ?? '');
     // Resolve restaurant info (populated object or null)
     const restaurant = restaurantData?.data?.restaurant;
+
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+    useEffect(() => {
+        Geolocation.getCurrentPosition(
+            pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => {},
+            { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+        );
+    }, []);
 
     // ── Poll every 15s until a terminal status is reached ────────────────────
     useEffect(() => {
@@ -226,9 +248,13 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
             : STATUS_STEPS.filter(s => s.id !== 'cancelled' && s.id !== 'rejected');
 
     const etaMinutes = order.etaMinutes ?? 30;
-    const distance = order.customerLocation?.distanceFromRestaurantKm
-        ? `${order.customerLocation.distanceFromRestaurantKm} km`
-        : '—';
+    // Replace existing distance line
+    const distance = (() => {
+        const coords = restaurant?.location?.coordinates; // [lng, lat]
+        if (!coords || coords.length < 2 || !userLocation) return '—';
+        const km = haversineKm(userLocation.lat, userLocation.lng, coords[1], coords[0]);
+        return `${km.toFixed(1)} km`;
+    })();
 
     const isFailed = order.status === 'cancelled' || order.status === 'rejected';
     const etaDisplay = order.customerETA ? formatTime(order.customerETA) : `${etaMinutes} min`;
@@ -239,6 +265,12 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
             : order.paymentMethod === 'upi_at_restaurant'
             ? 'UPI at Restaurant'
             : 'Online Payment';
+
+    const handleCall = () => {
+        const phone = restaurant?.phone;
+        if (!phone) return;
+        Linking.openURL(`tel:${phone}`);
+    };
 
     return (
         <View style={styles.root}>
@@ -291,50 +323,75 @@ export default function OrderTrackingScreen({ navigation, route }: OrderProps) {
                 )}
 
                 {/* Restaurant row */}
+                {/* Restaurant row */}
                 <View style={styles.restRow}>
-                    <View style={styles.restIcon}>
-                        <MaterialCommunityIcon
-                            name="silverware-fork-knife"
-                            size={22}
-                            color={Colors.amber}
-                        />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.restName}>{restaurant?.name ?? 'Restaurant'}</Text>
-                        <View style={styles.restSubRow}>
-                            {!!restaurant?.address?.city && (
-                                <>
-                                    <Icon
-                                        name="location-sharp"
-                                        size={11}
-                                        color={Colors.textSecondary}
-                                    />
-                                    <Text style={styles.restSub}>{restaurant.address.city}</Text>
-                                    <Text style={styles.restSubDot}>·</Text>
-                                </>
-                            )}
+                    {/* Row 1: Icon + Info */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={styles.restIcon}>
                             <MaterialCommunityIcon
-                                name={order.orderType === 'dine-in' ? 'silverware' : 'shopping'}
-                                size={11}
-                                color={Colors.textSecondary}
+                                name="silverware-fork-knife"
+                                size={22}
+                                color={Colors.amber}
                             />
-                            <Text style={styles.restSub}>
-                                {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
-                            </Text>
-                            {!!order.createdAt && (
-                                <>
-                                    <Text style={styles.restSubDot}>·</Text>
-                                    <Text style={styles.restSub}>
-                                        Placed {formatTime(order.createdAt)}
-                                    </Text>
-                                </>
-                            )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.restName}>{restaurant?.name ?? 'Restaurant'}</Text>
+                            <View style={styles.restSubRow}>
+                                {!!restaurant?.address?.city && (
+                                    <>
+                                        <Icon
+                                            name="location-sharp"
+                                            size={11}
+                                            color={Colors.textSecondary}
+                                        />
+                                        <Text style={styles.restSub}>
+                                            {restaurant.address.city}
+                                        </Text>
+                                        <Text style={styles.restSubDot}>·</Text>
+                                    </>
+                                )}
+                                <MaterialCommunityIcon
+                                    name={order.orderType === 'dine-in' ? 'silverware' : 'shopping'}
+                                    size={11}
+                                    color={Colors.textSecondary}
+                                />
+                                <Text style={styles.restSub}>
+                                    {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
+                                </Text>
+                                {!!order.createdAt && (
+                                    <>
+                                        <Text style={styles.restSubDot}>·</Text>
+                                        <Text style={styles.restSub}>
+                                            Placed {formatTime(order.createdAt)}
+                                        </Text>
+                                    </>
+                                )}
+                            </View>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.navBtn} onPress={handleNavigate}>
-                        <Icon name="navigate" size={16} color={Colors.amber} />
-                        <Text style={styles.navBtnText}>Navigate</Text>
-                    </TouchableOpacity>
+
+                    {/* Row 2: Navigate + Call buttons */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                        <TouchableOpacity
+                            style={[styles.navBtn, { flex: 1 }]}
+                            onPress={handleNavigate}
+                        >
+                            <Icon name="navigate" size={16} color={Colors.amber} />
+                            <Text style={styles.navBtnText}>Navigate</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.navBtn,
+                                { flex: 1, borderColor: '#BBF7D0', backgroundColor: '#F0FDF4' },
+                            ]}
+                            onPress={handleCall}
+                        >
+                            <Icon name="call" size={16} color={Colors.successGreen} />
+                            <Text style={[styles.navBtnText, { color: Colors.successGreen }]}>
+                                Call
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* ETA card */}
@@ -555,7 +612,7 @@ const styles = StyleSheet.create({
     failedReason: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
 
     restRow: {
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'center',
         gap: 12,
         backgroundColor: Colors.bgCard,

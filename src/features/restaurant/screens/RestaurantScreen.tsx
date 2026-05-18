@@ -21,6 +21,9 @@ import { Restaurant } from '../types/Restaurant';
 import { Route, Waypoint } from '../types/Route';
 import { useRestaurants } from '@/features/dashboard/hooks/useRestaurant';
 import { useRouteById } from '@/features/dashboard/hooks/useRoutes';
+import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 const FILTERS = ['All', 'Veg', 'Non-Veg', 'Open Now', 'Top Rated'];
 
@@ -160,7 +163,18 @@ const RouteProgressBar = ({
                                         isCurrent && styles.waypointChipTextCurrent,
                                     ]}
                                 >
-                                    {isFirst ? '🟢' : isLast ? '🔴' : '◉'} {wp.name}
+                                    {isFirst ? (
+                                        <Icon name="ellipse" size={8} color={Colors.successGreen} />
+                                    ) : isLast ? (
+                                        <Icon name="ellipse" size={8} color={Colors.redPin} />
+                                    ) : (
+                                        <Icon
+                                            name="radio-button-on"
+                                            size={8}
+                                            color={Colors.textSecondary}
+                                        />
+                                    )}{' '}
+                                    {wp.name}
                                 </Text>
                             </View>
                         );
@@ -171,7 +185,7 @@ const RouteProgressBar = ({
             {/* ── Nearest waypoint callout ──────────────────────────────────── */}
             {nearestWaypointName && !locationLoading && (
                 <Text style={styles.nearestText}>
-                    📍 You're near{' '}
+                    <Icon name="location-sharp" size={11} color={Colors.amber} /> You're near{' '}
                     <Text style={styles.nearestHighlight}>{nearestWaypointName}</Text>
                 </Text>
             )}
@@ -188,19 +202,28 @@ interface SearchBarProps {
     onBlur: () => void;
     focused: boolean;
     onClear: () => void;
+    placeholder?: string; // ← add
 }
 
-function SearchBar({ value, onChangeText, onFocus, onBlur, focused, onClear }: SearchBarProps) {
+function SearchBar({
+    value,
+    onChangeText,
+    onFocus,
+    onBlur,
+    focused,
+    onClear,
+    placeholder,
+}: SearchBarProps) {
     return (
         <View style={[styles.searchWrap, focused && styles.searchWrapFocused]}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Icon name="search-outline" size={16} color={Colors.textMuted} />
             <TextInput
                 style={styles.searchInput}
                 value={value}
                 onChangeText={onChangeText}
                 onFocus={onFocus}
                 onBlur={onBlur}
-                placeholder="Search restaurant by name…"
+                placeholder={placeholder ?? 'Search restaurant by name…'} // ← use it
                 placeholderTextColor={Colors.textMuted}
                 returnKeyType="search"
                 autoCorrect={false}
@@ -209,7 +232,7 @@ function SearchBar({ value, onChangeText, onFocus, onBlur, focused, onClear }: S
             {value.length > 0 && (
                 <TouchableOpacity style={styles.clearBtn} onPress={onClear} activeOpacity={0.7}>
                     <View style={styles.clearCircle}>
-                        <Text style={styles.clearX}>✕</Text>
+                        <Icon name="close" size={11} color={Colors.textSecondary} />
                     </View>
                 </TouchableOpacity>
             )}
@@ -222,7 +245,12 @@ function SearchBar({ value, onChangeText, onFocus, onBlur, focused, onClear }: S
 function NoResults({ query }: { query: string }) {
     return (
         <View style={styles.noResults}>
-            <Text style={styles.noResultsEmoji}>🍽️</Text>
+            <MaterialCommunityIcon
+                name="silverware-fork-knife"
+                size={48}
+                color={Colors.textMuted}
+                style={{ marginBottom: 4 }}
+            />
             <Text style={styles.noResultsTitle}>No restaurants found</Text>
             <Text style={styles.noResultsSub}>
                 {query ? (
@@ -245,6 +273,11 @@ type restaurantProps = NativeStackScreenProps<MainTabParamList, 'restaurants'>;
 export default function RestaurantListScreen({ navigation, route }: restaurantProps) {
     // routeId arrives from DashboardScreen via navigation params
     const routeId = route.params?.routeId ?? '';
+    const initialQuery = route.params?.searchQuery ?? '';
+
+    useEffect(() => {
+        if (initialQuery) setSearchQuery(initialQuery);
+    }, []);
 
     // ── Route details ──────────────────────────────────────────────────────────
     // API: GET /routes/:id  →  { data: { route: Route } }
@@ -330,7 +363,7 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
         };
     }, [requestPermission]);
 
-    // ── Derive progress from GPS + waypoints ───────────────────────────────────
+    // ── Derive progress from GPS + Waypoint points ───────────────────────────────────
     const { userProgress, nearestWaypoint } = useMemo(() => {
         const waypoints = currentRoute?.waypoints ?? [];
         if (!userLocation || waypoints.length === 0) {
@@ -347,12 +380,24 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
 
         const q = searchQuery.trim().toLowerCase();
         if (q) {
-            list = list.filter(
-                r =>
+            list = list.filter(r => {
+                const cuisine = getCuisine(r).toLowerCase();
+                return (
                     r.name.toLowerCase().includes(q) ||
-                    getCuisine(r).toLowerCase().includes(q) ||
-                    r.cuisines?.some(c => c.toLowerCase().includes(q)),
-            );
+                    r.description?.toLowerCase().includes(q) ||
+                    cuisine.includes(q) ||
+                    r.cuisines?.some(c => c.toLowerCase().includes(q)) ||
+                    r.foodType.toLowerCase().includes(q) || // "veg" / "non-veg"
+                    r.address.city?.toLowerCase().includes(q) ||
+                    r.address.street?.toLowerCase().includes(q) ||
+                    r.address.state?.toLowerCase().includes(q) ||
+                    r.address.pincode?.includes(q) ||
+                    String(r.rating).includes(q) || // e.g. "4.5"
+                    (q === 'open' && r.isOpen) || // "open"
+                    (q === 'closed' && !r.isOpen) || // "closed"
+                    (q === 'verified' && r.isVerified) // "verified"
+                );
+            });
         }
 
         if (activeFilter === 'Veg') list = list.filter(r => r.foodType === 'veg');
@@ -424,7 +469,11 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
                                     resizeMode="cover"
                                 />
                             ) : (
-                                <Text style={styles.rowImageEmoji}>🍽️</Text>
+                                <MaterialCommunityIcon
+                                    name="silverware-fork-knife"
+                                    size={28}
+                                    color={Colors.textMuted}
+                                />
                             )}
                         </View>
                         <View
@@ -442,7 +491,7 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
                         </View>
                         {r.isVerified && (
                             <View style={styles.verifiedDot}>
-                                <Text style={styles.verifiedDotText}>✓</Text>
+                                <Icon name="checkmark" size={9} color="#FFFFFF" />
                             </View>
                         )}
                     </View>
@@ -461,16 +510,62 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
                             {cuisine}
                         </Text>
 
+                        {/* ── Meta pills ── */}
                         <View style={styles.rowMeta}>
-                            {[
-                                `📍 ${r.address.city}`,
-                                `⏱ ${eta}`,
-                                `🗒 ${r.totalRatings} reviews`,
-                            ].map(m => (
-                                <View key={m} style={styles.metaPill}>
-                                    <Text style={styles.metaPillText}>{m}</Text>
+                            {/* City */}
+                            <View style={styles.metaPill}>
+                                <Icon
+                                    name="location-sharp"
+                                    size={10}
+                                    color={Colors.textSecondary}
+                                />
+                                <Text style={styles.metaPillText}>{r.address.city}</Text>
+                            </View>
+
+                            {/* Prep time */}
+                            <View style={styles.metaPill}>
+                                <MaterialCommunityIcon
+                                    name="clock-outline"
+                                    size={10}
+                                    color={Colors.textSecondary}
+                                />
+                                <Text style={styles.metaPillText}>{eta}</Text>
+                            </View>
+
+                            {/* Reviews */}
+                            <View style={styles.metaPill}>
+                                <Icon name="star-outline" size={10} color={Colors.textSecondary} />
+                                <Text style={styles.metaPillText}>{r.totalRatings} reviews</Text>
+                            </View>
+
+                            {/* Distance */}
+                            {userLocation && r.location?.coordinates?.length >= 2 ? (
+                                <View style={styles.metaPill}>
+                                    <MaterialCommunityIcon
+                                        name="map-marker-distance"
+                                        size={10}
+                                        color={Colors.textSecondary}
+                                    />
+                                    <Text style={styles.metaPillText}>
+                                        {haversineKm(
+                                            userLocation.lat,
+                                            userLocation.lng,
+                                            r.location.coordinates[1],
+                                            r.location.coordinates[0],
+                                        ).toFixed(1)}{' '}
+                                        km away
+                                    </Text>
                                 </View>
-                            ))}
+                            ) : locationLoading ? (
+                                <View style={styles.metaPill}>
+                                    <MaterialCommunityIcon
+                                        name="map-marker-distance"
+                                        size={10}
+                                        color={Colors.textSecondary}
+                                    />
+                                    <Text style={styles.metaPillText}>Locating…</Text>
+                                </View>
+                            ) : null}
                         </View>
 
                         {!isPassed && (
@@ -537,11 +632,10 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <View style={styles.root}>
-
             {/* ── Top bar ─────────────────────────────────────────────────────── */}
             <View style={styles.topBar}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Text style={styles.backIcon}>←</Text>
+                    <Icon name="arrow-back" size={18} color={Colors.textPrimary} />
                 </TouchableOpacity>
 
                 <View style={styles.topBarCenter}>
@@ -567,7 +661,7 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
                             .navigate('cart')
                     }
                 >
-                    <Text style={{ fontSize: 18 }}>🛒</Text>
+                    <Icon name="cart-outline" size={22} color={Colors.textPrimary} />
                 </TouchableOpacity>
             </View>
 
@@ -595,6 +689,7 @@ export default function RestaurantListScreen({ navigation, route }: restaurantPr
                     onBlur={() => setFocused(false)}
                     focused={searchFocused}
                     onClear={() => setSearchQuery('')}
+                    placeholder="Search by name, cuisine, city, veg…" // ← add this prop
                 />
                 {isSearching && (
                     <View style={styles.resultBadge}>
@@ -980,6 +1075,9 @@ const styles = StyleSheet.create({
     rowCuisinePassed: { color: Colors.textMuted },
     rowMeta: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
     metaPill: {
+        flexDirection: 'row', // ← add
+        alignItems: 'center', // ← add
+        gap: 3, // ← add
         backgroundColor: Colors.bgElevated,
         borderRadius: Radius.full,
         paddingHorizontal: 7,
